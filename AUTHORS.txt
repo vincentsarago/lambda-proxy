@@ -1,0 +1,6 @@
+Authors
+-------
+
+* Vincent Sarago <https://github.com/vincentsarago>
+
+See also https://github.com/vincentsarago/lambda-proxy/graphs/contributors.
