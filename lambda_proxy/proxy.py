@@ -196,7 +196,7 @@ class API(object):
             messageData['headers']['Access-Control-Allow-Origin'] = '*'
             messageData['headers']['Access-Control-Allow-Methods'] = 'GET'
 
-        if content_type in ['image/png', 'image/jpeg']:
+        if content_type in ['image/png', 'image/jpeg', 'image/tif']:
             messageData['isBase64Encoded'] = True
 
         return messageData
