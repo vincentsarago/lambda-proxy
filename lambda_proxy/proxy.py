@@ -187,6 +187,15 @@ class API(object):
             'CONFLICT': '409',
             'ERROR': '500'}
 
+        binary_types = [
+            'application/octet-stream',
+            'application/x-tar',
+            'application/zip',
+            'image/png',
+            'image/jpeg',
+            'image/tiff',
+            'image/webp']
+
         messageData = {
             'statusCode': statusCode[status],
             'body': response_body,
@@ -196,7 +205,7 @@ class API(object):
             messageData['headers']['Access-Control-Allow-Origin'] = '*'
             messageData['headers']['Access-Control-Allow-Methods'] = 'GET'
 
-        if content_type in ['image/png', 'image/jpeg', 'image/tif']:
+        if content_type in binary_types:
             messageData['isBase64Encoded'] = True
 
         return messageData
