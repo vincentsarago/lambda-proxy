@@ -1,6 +1,10 @@
 Changes
 =======
 
+0.0.4 (2018-03-30)
+----------------
+- add `Access-Control-Allow-Credentials` in response headers.
+
 0.0.1 (2017-11-26)
 ----------------
 - Initial release.
