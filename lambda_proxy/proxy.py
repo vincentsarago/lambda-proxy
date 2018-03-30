@@ -204,6 +204,7 @@ class API(object):
         if cors:
             messageData['headers']['Access-Control-Allow-Origin'] = '*'
             messageData['headers']['Access-Control-Allow-Methods'] = 'GET'
+            messageData['headers']['Access-Control-Allow-Credentials'] = 'true'
 
         if content_type in binary_types:
             messageData['isBase64Encoded'] = True
