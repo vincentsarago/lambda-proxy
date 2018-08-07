@@ -117,6 +117,7 @@ class API(object):
         self.routes[path] = entry
 
     def _url_convert(self, path):
+        path = '^{}$'.format(path)  # full match
         path = re.sub(r"<\w+>", r"(\w+)", path)
         path = re.sub(r"<string\:\w+>", r"(\w+)", path)
         path = re.sub(r"<int\:\w+>", r"(\d+)", path)
@@ -132,7 +133,7 @@ class API(object):
         for path, function in self.routes.items():
             route_expr = self._url_convert(path)
             expr = re.compile(route_expr)
-            if expr.fullmatch(url):
+            if expr.match(url):
                 return path
 
         return ""
