@@ -1,6 +1,14 @@
 Changes
 =======
 
+1.0.0 (2018-08-07)
+------------------
+- Global refactor
+- Ran Black, the uncompromising Python code formatter.
+- Full test suite
+- Better regex route parsing
+- Add logging option
+
 0.0.4 (2018-03-30)
 ----------------
 - add `Access-Control-Allow-Credentials` in response headers.
