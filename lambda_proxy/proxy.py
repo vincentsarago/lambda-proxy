@@ -237,7 +237,7 @@ class API(object):
 
     def __call__(self, event, context):
         """Initialize route and handlers."""
-        self.log.debug(event)
+        self.log.debug(json.dumps(event))
 
         resource_path = event.get("path", None)
         if resource_path is None:
