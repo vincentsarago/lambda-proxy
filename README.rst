@@ -2,6 +2,15 @@
 lambda-proxy
 ============
 
+.. image:: https://badge.fury.io/py/lambda-proxy.svg
+    :target: https://badge.fury.io/py/lambda-proxy
+
+.. image:: https://circleci.com/gh/vincentsarago/lambda-proxy.svg?style=svg
+    :target: https://circleci.com/gh/vincentsarago/lambda-proxy
+
+.. image:: https://codecov.io/gh/vincentsarago/lambda-proxy/branch/master/graph/badge.svg
+  :target: https://codecov.io/gh/vincentsarago/lambda-proxy
+
 A simple AWS Lambda proxy to handle API Gateway request
 
 Install
