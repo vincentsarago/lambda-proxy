@@ -10,13 +10,15 @@ funct = Mock(__name__="Mock")
 
 def test_Request_valid():
     """Should work as expected."""
-    query_params = {"user": "remotepixel"}
-    url_params = {"x": 200}
-    method = "GET"
-    req = Request(query_params, url_params, method)
-    assert req.query_params == query_params
-    assert req.uri_params == url_params
-    assert req.method == method
+    event = {
+        "queryStringParameters": {"user": "remotepixel"},
+        "httpMethod": "GET",
+        "path": "/test"
+    }
+    req = Request(event)
+    assert req.query_params == {"user": "remotepixel"}
+    assert req.url == "/test"
+    assert req.method == "GET"
 
 
 def tes2t_RouteEntry_init():
@@ -107,7 +109,7 @@ def test_API():
     res = app(event, {})
     assert res == resp
     assert app.current_request.query_params == {}
-    assert app.current_request.uri_params == "/test/remotepixel"
+    assert app.current_request.url == "/test/remotepixel"
     assert app.current_request.method == "GET"
     funct.assert_called_with("remotepixel")
 

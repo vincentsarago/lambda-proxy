@@ -10,17 +10,17 @@ import sys
 import json
 import logging
 
-_PARAMS = re.compile("<\w+\:?\w+>")
+_PARAMS = re.compile(r"<[a-zA-Z0-9_]+\:?[a-zA-Z0-9_]+>")
 
 
 class Request(object):
     """The current request from API gateway."""
 
-    def __init__(self, query_params, uri_params, method):
+    def __init__(self, event):
         """Initialize request object."""
-        self.query_params = query_params
-        self.uri_params = uri_params
-        self.method = method
+        self.query_params = event['queryStringParameters']
+        self.method = event['httpMethod']
+        self.url = event['path']
 
 
 class RouteEntry(object):
@@ -118,13 +118,13 @@ class API(object):
 
     def _url_convert(self, path):
         path = '^{}$'.format(path)  # full match
-        path = re.sub(r"<\w+>", r"(\w+)", path)
-        path = re.sub(r"<string\:\w+>", r"(\w+)", path)
-        path = re.sub(r"<int\:\w+>", r"(\d+)", path)
-        path = re.sub(r"<float\:\w+>", r"([+-]?[0-9]+\.[0-9]+)", path)
+        path = re.sub(r"<[a-zA-Z0-9_]+>", r"([a-zA-Z0-9_]+)", path)
+        path = re.sub(r"<string\:[a-zA-Z0-9_]+>", r"([a-zA-Z0-9_]+)", path)
+        path = re.sub(r"<int\:[a-zA-Z0-9_]+>", r"([0-9]+)", path)
+        path = re.sub(r"<float\:[a-zA-Z0-9_]+>", "([+-]?[0-9]+\.[0-9]+)", path)
         path = re.sub(
-            r"<uuid\:\w+>",
-            r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})",
+            r"<uuid\:[a-zA-Z0-9_]+>",
+            "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})",
             path,
         )
         return path
@@ -139,7 +139,7 @@ class API(object):
         return ""
 
     def _converters(self, value, pathArg):
-        conv_expr = re.compile(r"<\w+\:\w+>")
+        conv_expr = re.compile(r"<[a-zA-Z0-9_]+\:[a-zA-Z0-9_]+>")
         if conv_expr.match(pathArg):
             if pathArg.split(":")[0] == "<int":
                 return int(eval(value))
@@ -160,7 +160,7 @@ class API(object):
             return value
 
     def _get_matching_args(self, route, url):
-        route_expr = re.compile('<\w+\:?\w+>')
+        route_expr = re.compile(r"<[a-zA-Z0-9_]+\:?[a-zA-Z0-9_]+>")
         url_expr = re.compile(self._url_convert(route))
 
         route_args = route_expr.findall(route)
@@ -278,9 +278,7 @@ class API(object):
             )
 
         function_args = self._get_matching_args(route_entry.uri_pattern, resource_path)
-        self.current_request = Request(
-            event["queryStringParameters"], event["path"], event["httpMethod"]
-        )
+        self.current_request = Request(event)
 
         try:
             response = route_entry.view_function(*function_args)
