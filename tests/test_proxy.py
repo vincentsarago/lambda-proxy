@@ -172,9 +172,6 @@ def test_API_routeURL():
     resp = {
         "body": '{"errorMessage": "Unsupported method: POST"}',
         "headers": {
-            "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "GET",
-            "Access-Control-Allow-Origin": "*",
             "Content-Type": "application/json",
         },
         "statusCode": "400",
@@ -333,6 +330,62 @@ def test_API_functionError():
     }
     res = app(event, {})
     assert res == resp
+
+    # Clear logger handlers
+    for h in app.log.handlers:
+        app.log.removeHandler(h)
+
+
+def test_API_Post():
+    """SHould work as expected on POST request."""
+    app = API(app_name="test")
+    funct = Mock(__name__="Mock", return_value=("OK", "text/plain", "heyyyy"))
+    app._add_route("/test/<user>", funct, methods=["GET", "POST"], cors=True)
+
+    event = {
+        "path": "/test/remotepixel",
+        "httpMethod": "POST",
+        "queryStringParameters": {},
+        "body": b"0001"
+    }
+    resp = {
+        "body": "heyyyy",
+        "headers": {
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET,POST",
+            "Access-Control-Allow-Origin": "*",
+            "Content-Type": "text/plain",
+        },
+        "statusCode": "200",
+    }
+    res = app(event, {})
+    assert res == resp
+    assert app.current_request.query_params == {}
+    assert app.current_request.url == "/test/remotepixel"
+    assert app.current_request.method == "POST"
+    funct.assert_called_with("remotepixel", body=b"0001")
+
+    event = {
+        "path": "/test/remotepixel",
+        "httpMethod": "GET",
+        "queryStringParameters": {}
+    }
+    resp = {
+        "body": "heyyyy",
+        "headers": {
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET,POST",
+            "Access-Control-Allow-Origin": "*",
+            "Content-Type": "text/plain",
+        },
+        "statusCode": "200",
+    }
+    res = app(event, {})
+    assert res == resp
+    assert app.current_request.query_params == {}
+    assert app.current_request.url == "/test/remotepixel"
+    assert app.current_request.method == "GET"
+    funct.assert_called_with("remotepixel")
 
     # Clear logger handlers
     for h in app.log.handlers:
