@@ -18,9 +18,9 @@ class Request(object):
 
     def __init__(self, event):
         """Initialize request object."""
-        self.query_params = event['queryStringParameters']
-        self.method = event['httpMethod']
-        self.url = event['path']
+        self.query_params = event["queryStringParameters"]
+        self.method = event["httpMethod"]
+        self.url = event["path"]
 
 
 class RouteEntry(object):
@@ -117,7 +117,7 @@ class API(object):
         self.routes[path] = entry
 
     def _url_convert(self, path):
-        path = '^{}$'.format(path)  # full match
+        path = "^{}$".format(path)  # full match
         path = re.sub(r"<[a-zA-Z0-9_]+>", r"([a-zA-Z0-9_]+)", path)
         path = re.sub(r"<string\:[a-zA-Z0-9_]+>", r"([a-zA-Z0-9_]+)", path)
         path = re.sub(r"<int\:[a-zA-Z0-9_]+>", r"([0-9]+)", path)
@@ -187,13 +187,14 @@ class API(object):
 
     def route(self, path, **kwargs):
         """Register route."""
+
         def _register_view(view_func):
             self._add_route(path, view_func, **kwargs)
             return view_func
 
         return _register_view
 
-    def response(self, status, content_type, response_body, cors=False):
+    def response(self, status, content_type, response_body, cors=False, methods=["GET"]):
         """Return HTTP response.
 
         including response code (status), headers and body
@@ -227,7 +228,7 @@ class API(object):
 
         if cors:
             messageData["headers"]["Access-Control-Allow-Origin"] = "*"
-            messageData["headers"]["Access-Control-Allow-Methods"] = "GET"
+            messageData["headers"]["Access-Control-Allow-Methods"] = ",".join(methods)
             messageData["headers"]["Access-Control-Allow-Credentials"] = "true"
 
         if content_type in binary_types:
@@ -237,7 +238,9 @@ class API(object):
 
     def __call__(self, event, context):
         """Initialize route and handlers."""
-        self.log.debug(json.dumps(event))
+        self.log.debug(json.dumps(event.get("headers", {})))
+        self.log.debug(json.dumps(event.get("queryStringParameters", {})))
+        self.log.debug(json.dumps(event.get("pathParameters", {})))
 
         resource_path = event.get("path", None)
         if resource_path is None:
@@ -253,7 +256,7 @@ class API(object):
                 "application/json",
                 json.dumps(
                     {"errorMessage": "No view function for: {}".format(resource_path)}
-                )
+                ),
             )
 
         route_entry = self.routes[self._url_matching(resource_path)]
@@ -273,19 +276,30 @@ class API(object):
                 "application/json",
                 json.dumps(
                     {"errorMessage": "Unsupported method: {}".format(http_method)}
-                ),
-                route_entry.cors,
+                )
             )
 
         function_args = self._get_matching_args(route_entry.uri_pattern, resource_path)
+        function_kwargs = {}
+        if http_method == "POST":
+            function_kwargs.update(dict(body=event.get("body", None)))
+
         self.current_request = Request(event)
 
         try:
-            response = route_entry.view_function(*function_args)
+            response = route_entry.view_function(*function_args, **function_kwargs)
         except Exception as err:
             self.log.error(str(err))
             response = (
-                "ERROR", "application/json", json.dumps({"errorMessage": str(err)})
+                "ERROR",
+                "application/json",
+                json.dumps({"errorMessage": str(err)}),
             )
 
-        return self.response(response[0], response[1], response[2], route_entry.cors)
+        return self.response(
+            response[0],
+            response[1],
+            response[2],
+            cors=route_entry.cors,
+            methods=route_entry.methods,
+        )

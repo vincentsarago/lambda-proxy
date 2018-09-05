@@ -33,6 +33,8 @@ Or install from source:
 Usage
 =====
 
+With GET request
+
 .. code-block:: python
 
   >>> from lambda_proxy.proxy import API
@@ -41,6 +43,19 @@ Usage
   >>> @APP.route('/test/tests/<id>', methods=['GET'], cors=True)
   >>> def print_id(id):
           return ('OK', 'plain/text', id))
+
+
+With POST request
+
+.. code-block:: python
+
+  >>> from lambda_proxy.proxy import API
+  >>> APP = API(app_name="app")
+
+  >>> @APP.route('/test/tests/<id>', methods=['POST'], cors=True)
+  >>> def print_id(id, body):
+          return ('OK', 'plain/text', id))
+
 
 
 License
