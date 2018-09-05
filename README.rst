@@ -57,6 +57,21 @@ With POST request
           return ('OK', 'plain/text', id))
 
 
+Simple Auth token
+
+Lambda-proxy provide a simple token validation system.
+
+- a "TOKEN" variable must be set in the environment
+- each request must provide a "access_token" params (e.g `curl http://myurl/test/tests/myid?access_token=blabla`)
+
+.. code-block:: python
+
+  >>> from lambda_proxy.proxy import API
+  >>> APP = API(app_name="app")
+
+  >>> @APP.route('/test/tests/<id>', methods=['GET'], cors=True, token=True)
+  >>> def print_id(id):
+          return ('OK', 'plain/text', id))
 
 License
 -------

@@ -1,13 +1,14 @@
 Changes
 =======
 
-1.0.0 (2018-08-07)
+1.0.0 (2018-09-05)
 ------------------
 - Global refactor
 - Ran Black, the uncompromising Python code formatter.
 - Full test suite
 - Better regex route parsing
 - Add logging option
+- Add POST
 
 0.0.4 (2018-03-30)
 ----------------

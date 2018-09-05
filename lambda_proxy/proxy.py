@@ -187,14 +187,15 @@ class API(object):
 
     def route(self, path, **kwargs):
         """Register route."""
-
         def _register_view(view_func):
             self._add_route(path, view_func, **kwargs)
             return view_func
 
         return _register_view
 
-    def response(self, status, content_type, response_body, cors=False, methods=["GET"]):
+    def response(
+        self, status, content_type, response_body, cors=False, methods=["GET"]
+    ):
         """Return HTTP response.
 
         including response code (status), headers and body
@@ -276,7 +277,7 @@ class API(object):
                 "application/json",
                 json.dumps(
                     {"errorMessage": "Unsupported method: {}".format(http_method)}
-                )
+                ),
             )
 
         function_args = self._get_matching_args(route_entry.uri_pattern, resource_path)
