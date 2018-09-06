@@ -173,9 +173,8 @@ class API(object):
         ]
         return args
 
-    def _validate_token(self, params):
-        token = params.get("access_token", None)
-        env_token = os.environ.get("TOKEN", None)
+    def _validate_token(self, token=None):
+        env_token = os.environ.get("TOKEN")
 
         if not token or not env_token:
             return False
@@ -261,9 +260,9 @@ class API(object):
             )
 
         route_entry = self.routes[self._url_matching(resource_path)]
+        request_params = event.get("queryStringParameters", {})
         if route_entry.token:
-            params = event.get("queryStringParameters", {})
-            if not self._validate_token(params):
+            if not self._validate_token(request_params.get("access_token")):
                 return self.response(
                     "ERROR",
                     "application/json",
@@ -280,10 +279,13 @@ class API(object):
                 ),
             )
 
+        # remove access_token from kwargs
+        request_params.pop("access_token", False)
+
         function_args = self._get_matching_args(route_entry.uri_pattern, resource_path)
-        function_kwargs = {}
+        function_kwargs = request_params.copy()
         if http_method == "POST":
-            function_kwargs.update(dict(body=event.get("body", None)))
+            function_kwargs.update(dict(body=event.get("body")))
 
         self.current_request = Request(event)
 

@@ -73,6 +73,28 @@ Lambda-proxy provide a simple token validation system.
   >>> def print_id(id):
           return ('OK', 'plain/text', id))
 
+URL schema and request parameters
+
+.. code-block:: python
+
+  >>> from lambda_proxy.proxy import API
+  >>> APP = API(app_name="app")
+
+  >>> @APP.route('/test/tests/<id>', methods=['GET'], cors=True)
+  >>> def print_id(id, name=None):
+          return ('OK', 'plain/text', f"{id}{name}"))
+
+requests:
+
+.. code-block::
+
+  >>> curl /test/tests/000001
+  0001
+
+  >>> curl /test/tests/000001?name=vincent
+  0001vincent
+
+
 License
 -------
 
