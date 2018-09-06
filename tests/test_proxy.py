@@ -262,6 +262,26 @@ def test_API_routeToken(monkeypatch):
     }
     res = app(event, {})
     assert res == resp
+    funct.assert_called_with("remotepixel")
+
+    event = {
+        "path": "/test/remotepixel",
+        "httpMethod": "GET",
+        "queryStringParameters": {"inp": 1, "access_token": "yo"},
+    }
+    resp = {
+        "body": "heyyyy",
+        "headers": {
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Origin": "*",
+            "Content-Type": "text/plain",
+        },
+        "statusCode": "200",
+    }
+    res = app(event, {})
+    assert res == resp
+    funct.assert_called_with("remotepixel", inp=1)
 
     event = {
         "path": "/test/remotepixel",
