@@ -121,7 +121,7 @@ class API(object):
         path = re.sub(r"<[a-zA-Z0-9_]+>", r"([a-zA-Z0-9_]+)", path)
         path = re.sub(r"<string\:[a-zA-Z0-9_]+>", r"([a-zA-Z0-9_]+)", path)
         path = re.sub(r"<int\:[a-zA-Z0-9_]+>", r"([0-9]+)", path)
-        path = re.sub(r"<float\:[a-zA-Z0-9_]+>", "([+-]?[0-9]+\.[0-9]+)", path)
+        path = re.sub(r"<float\:[a-zA-Z0-9_]+>", "([+-]?[0-9]+.[0-9]+)", path)
         path = re.sub(
             r"<uuid\:[a-zA-Z0-9_]+>",
             "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})",
@@ -186,6 +186,7 @@ class API(object):
 
     def route(self, path, **kwargs):
         """Register route."""
+
         def _register_view(view_func):
             self._add_route(path, view_func, **kwargs)
             return view_func
