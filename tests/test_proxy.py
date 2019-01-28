@@ -1,4 +1,3 @@
-
 import pytest
 from mock import Mock
 
@@ -13,7 +12,7 @@ def test_Request_valid():
     event = {
         "queryStringParameters": {"user": "remotepixel"},
         "httpMethod": "GET",
-        "path": "/test"
+        "path": "/test",
     }
     req = Request(event)
     assert req.query_params == {"user": "remotepixel"}
@@ -94,7 +93,9 @@ def test_API():
     app._add_route("/test/<user>", funct, methods=["GET"], cors=True)
 
     event = {
-        "path": "/test/remotepixel", "httpMethod": "GET", "queryStringParameters": {}
+        "path": "/test/remotepixel",
+        "httpMethod": "GET",
+        "queryStringParameters": {},
     }
     resp = {
         "body": "heyyyy",
@@ -145,7 +146,9 @@ def test_API_routeURL():
     app._add_route("/test/<user>", funct, methods=["GET"], cors=True)
 
     event = {
-        "route": "/users/remotepixel", "httpMethod": "GET", "queryStringParameters": {}
+        "route": "/users/remotepixel",
+        "httpMethod": "GET",
+        "queryStringParameters": {},
     }
     resp = {
         "body": '{"errorMessage": "Missing route parameter"}',
@@ -156,7 +159,9 @@ def test_API_routeURL():
     assert res == resp
 
     event = {
-        "path": "/users/remotepixel", "httpMethod": "GET", "queryStringParameters": {}
+        "path": "/users/remotepixel",
+        "httpMethod": "GET",
+        "queryStringParameters": {},
     }
     resp = {
         "body": '{"errorMessage": "No view function for: /users/remotepixel"}',
@@ -167,20 +172,22 @@ def test_API_routeURL():
     assert res == resp
 
     event = {
-        "path": "/test/remotepixel", "httpMethod": "POST", "queryStringParameters": {}
+        "path": "/test/remotepixel",
+        "httpMethod": "POST",
+        "queryStringParameters": {},
     }
     resp = {
         "body": '{"errorMessage": "Unsupported method: POST"}',
-        "headers": {
-            "Content-Type": "application/json",
-        },
+        "headers": {"Content-Type": "application/json"},
         "statusCode": "400",
     }
     res = app(event, {})
     assert res == resp
 
     event = {
-        "path": "/users/remotepixel", "httpMethod": "GET", "queryStringParameters": {}
+        "path": "/users/remotepixel",
+        "httpMethod": "GET",
+        "queryStringParameters": {},
     }
     resp = {
         "body": '{"errorMessage": "No view function for: /users/remotepixel"}',
@@ -336,7 +343,9 @@ def test_API_functionError():
     app._add_route("/test/<user>", funct, methods=["GET"], cors=True)
 
     event = {
-        "path": "/test/remotepixel", "httpMethod": "GET", "queryStringParameters": {}
+        "path": "/test/remotepixel",
+        "httpMethod": "GET",
+        "queryStringParameters": {},
     }
     resp = {
         "body": '{"errorMessage": "hey something went wrong"}',
@@ -366,7 +375,7 @@ def test_API_Post():
         "path": "/test/remotepixel",
         "httpMethod": "POST",
         "queryStringParameters": {},
-        "body": b"0001"
+        "body": b"0001",
     }
     resp = {
         "body": "heyyyy",
@@ -388,7 +397,7 @@ def test_API_Post():
     event = {
         "path": "/test/remotepixel",
         "httpMethod": "GET",
-        "queryStringParameters": {}
+        "queryStringParameters": {},
     }
     resp = {
         "body": "heyyyy",

@@ -109,3 +109,31 @@ Changes
 -------
 
 See `CHANGES.txt <CHANGES.txt>`__.
+
+
+Contribution & Devellopement
+============================
+
+Issues and pull requests are more than welcome.
+
+**Dev install & Pull-Request**
+
+.. code-block:: console
+
+  $ git clone https://github.com/vincentsarago/lambda-proxy.git
+  $ cd lambda-proxy
+  $ pip install -e .[dev]
+
+*Python >3.6 only*
+
+This repo is set to use `pre-commit` to run *flake8*, *pydocstring* and *black* ("uncompromising Python code formatter") when committing new code.
+
+.. code-block:: console
+
+  $ pre-commit install
+  $ git add .
+  $ git commit -m'my change'
+  black....................................................................Passed
+  Flake8...................................................................Passed
+  Verifying PEP257 Compliance..............................................Passed
+  $ git push origin
