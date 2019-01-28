@@ -8,10 +8,16 @@ common: &common
     - run: virtualenv venv
     - run:
         name: install dependencies
-        command: pip install --user tox codecov
+        command: pip install tox codecov pre-commit --user
     - run:
         name: run tox
         command: ~/.local/bin/tox
+    - run:
+        name: run pre-commit
+        command: |
+          if [[ "$CIRCLE_JOB" == "python-3.6" ]]; then
+             ~/.local/bin/pre-commit run --all-files
+          fi
     - run:
         name: upload coverage report
         command: |
