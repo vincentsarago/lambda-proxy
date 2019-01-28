@@ -15,17 +15,6 @@ import logging
 _PARAMS = re.compile(r"<[a-zA-Z0-9_]+\:?[a-zA-Z0-9_]+>")
 
 
-class Request(object):
-    """The current request from API gateway."""
-
-    def __init__(self, event):
-        """Initialize request object."""
-        self.headers = event.get("headers")
-        self.query_params = event["queryStringParameters"]
-        self.method = event["httpMethod"]
-        self.url = event["path"]
-
-
 class RouteEntry(object):
     """Decode request path."""
 
@@ -34,7 +23,7 @@ class RouteEntry(object):
         view_function,
         view_name,
         path,
-        methods,
+        methods=["GET"],
         cors=False,
         token=False,
         payload_compression_method="",
@@ -74,7 +63,6 @@ class API(object):
         """Initialize API object."""
         self.app_name = app_name
         self.routes = {}
-        self.current_request = None
         self.debug = debug
         self.log = logging.getLogger(self.app_name)
         if configure_logs:
@@ -200,7 +188,8 @@ class API(object):
         content_type,
         response_body,
         cors=False,
-        methods=["GET"],
+        accepted_methods=[],
+        accepted_compression=[],
         compression="",
         b64encode=False,
     ):
@@ -236,10 +225,12 @@ class API(object):
 
         if cors:
             messageData["headers"]["Access-Control-Allow-Origin"] = "*"
-            messageData["headers"]["Access-Control-Allow-Methods"] = ",".join(methods)
+            messageData["headers"]["Access-Control-Allow-Methods"] = ",".join(
+                accepted_methods
+            )
             messageData["headers"]["Access-Control-Allow-Credentials"] = "true"
 
-        if compression:
+        if compression in accepted_compression:
             messageData["headers"]["Content-Encoding"] = compression
             if compression == "gzip":
                 gzip_compress = zlib.compressobj(9, zlib.DEFLATED, zlib.MAX_WBITS | 16)
@@ -278,6 +269,8 @@ class API(object):
         self.log.debug(json.dumps(event.get("headers", {})))
         self.log.debug(json.dumps(event.get("queryStringParameters", {})))
         self.log.debug(json.dumps(event.get("pathParameters", {})))
+
+        headers = dict((key.lower(), value) for key, value in event["headers"].items())
 
         resource_path = event.get("path", None)
         if resource_path is None:
@@ -324,8 +317,6 @@ class API(object):
         if http_method == "POST":
             function_kwargs.update(dict(body=event.get("body")))
 
-        self.current_request = Request(event)
-
         try:
             response = route_entry.view_function(*function_args, **function_kwargs)
         except Exception as err:
@@ -336,19 +327,13 @@ class API(object):
                 json.dumps({"errorMessage": str(err)}),
             )
 
-        if route_entry.compression in self.current_request.headers.get(
-            "Accept-Encoding", []
-        ):
-            compression = route_entry.compression
-        else:
-            compression = ""
-
         return self.response(
             response[0],
             response[1],
             response[2],
             cors=route_entry.cors,
-            methods=route_entry.methods,
-            compression=compression,
+            accepted_methods=route_entry.methods,
+            accepted_compression=headers.get("accept-encoding", []),
+            compression=route_entry.compression,
             b64encode=route_entry.b64encode,
         )

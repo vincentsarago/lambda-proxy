@@ -1,23 +1,10 @@
 import pytest
 from mock import Mock
 
-from lambda_proxy.proxy import Request, RouteEntry, API
+from lambda_proxy.proxy import RouteEntry, API
 
 
 funct = Mock(__name__="Mock")
-
-
-def test_Request_valid():
-    """Should work as expected."""
-    event = {
-        "queryStringParameters": {"user": "remotepixel"},
-        "httpMethod": "GET",
-        "path": "/test",
-    }
-    req = Request(event)
-    assert req.query_params == {"user": "remotepixel"}
-    assert req.url == "/test"
-    assert req.method == "GET"
 
 
 def tes2t_RouteEntry_init():
