@@ -8,7 +8,7 @@ import os
 import re
 import sys
 import json
-import gzip
+import zlib
 import base64
 import logging
 
@@ -239,13 +239,35 @@ class API(object):
             messageData["headers"]["Access-Control-Allow-Methods"] = ",".join(methods)
             messageData["headers"]["Access-Control-Allow-Credentials"] = "true"
 
-        if compression and content_type is not "application/zip":
-            response_body = gzip.compress(response_body)
-            messageData["headers"]["Content-Encoding"] = 'gzip'
+        if compression:
+            messageData["headers"]["Content-Encoding"] = compression
+            if compression == "gzip":
+                gzip_compress = zlib.compressobj(9, zlib.DEFLATED, zlib.MAX_WBITS | 16)
+                response_body = (
+                    gzip_compress.compress(response_body) + gzip_compress.flush()
+                )
+            elif compression == "zlib":
+                zlib_compress = zlib.compressobj(9, zlib.DEFLATED, zlib.MAX_WBITS)
+                response_body = (
+                    zlib_compress.compress(response_body) + zlib_compress.flush()
+                )
+            elif compression == "deflate":
+                deflate_compress = zlib.compressobj(9, zlib.DEFLATED, -zlib.MAX_WBITS)
+                response_body = (
+                    deflate_compress.compress(response_body) + deflate_compress.flush()
+                )
+            else:
+                return self.response(
+                    "ERROR",
+                    "application/json",
+                    json.dumps(
+                        {"errorMessage": f"Invalid compression mode: {compression}"}
+                    ),
+                )
 
         if content_type in binary_types and b64encode:
             messageData["isBase64Encoded"] = True
-            messageData["body"] = base64.b64encode(response_body)
+            messageData["body"] = base64.b64encode(response_body).decode()
         else:
             messageData["body"] = response_body
 
@@ -314,7 +336,9 @@ class API(object):
                 json.dumps({"errorMessage": str(err)}),
             )
 
-        if route_entry.compression in self.current_request.headers.get("Accept-Encoding", ""):
+        if route_entry.compression in self.current_request.headers.get(
+            "Accept-Encoding", []
+        ):
             compression = route_entry.compression
         else:
             compression = ""
