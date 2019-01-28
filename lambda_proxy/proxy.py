@@ -37,8 +37,8 @@ class RouteEntry(object):
         methods,
         cors=False,
         token=False,
-        compression="",
-        b64encode=False,
+        payload_compression_method="",
+        binary_b64encode=False,
     ):
         """Initialize route object."""
         self.view_function = view_function
@@ -48,8 +48,8 @@ class RouteEntry(object):
         self.view_args = self._parse_view_args()
         self.cors = cors
         self.token = token
-        self.compression = compression
-        self.b64encode = b64encode
+        self.compression = payload_compression_method
+        self.b64encode = binary_b64encode
 
     def _parse_view_args(self):
         if "{" not in self.uri_pattern:
@@ -261,7 +261,7 @@ class API(object):
                     "ERROR",
                     "application/json",
                     json.dumps(
-                        {"errorMessage": f"Invalid compression mode: {compression}"}
+                        {"errorMessage": f"Unsupported compression mode: {compression}"}
                     ),
                 )
 
