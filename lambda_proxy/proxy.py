@@ -8,6 +8,8 @@ import os
 import re
 import sys
 import json
+import gzip
+import base64
 import logging
 
 _PARAMS = re.compile(r"<[a-zA-Z0-9_]+\:?[a-zA-Z0-9_]+>")
@@ -18,6 +20,7 @@ class Request(object):
 
     def __init__(self, event):
         """Initialize request object."""
+        self.headers = event.get("headers")
         self.query_params = event["queryStringParameters"]
         self.method = event["httpMethod"]
         self.url = event["path"]
@@ -27,7 +30,15 @@ class RouteEntry(object):
     """Decode request path."""
 
     def __init__(
-        self, view_function, view_name, path, methods, cors=False, token=False
+        self,
+        view_function,
+        view_name,
+        path,
+        methods,
+        cors=False,
+        token=False,
+        compression="",
+        b64encode=False,
     ):
         """Initialize route object."""
         self.view_function = view_function
@@ -37,6 +48,8 @@ class RouteEntry(object):
         self.view_args = self._parse_view_args()
         self.cors = cors
         self.token = token
+        self.compression = compression
+        self.b64encode = b64encode
 
     def _parse_view_args(self):
         if "{" not in self.uri_pattern:
@@ -97,24 +110,12 @@ class API(object):
 
     def _add_route(self, path, view_func, **kwargs):
         name = kwargs.pop("name", view_func.__name__)
-        methods = kwargs.pop("methods", ["GET"])
-        cors = kwargs.pop("cors", False)
-        token = kwargs.pop("token", False)
-
-        if kwargs:
-            raise TypeError(
-                "route() got unexpected keyword "
-                "arguments: {}".format(", ".join(list(kwargs)))
-            )
-
         if path in self.routes:
             raise ValueError(
                 'Duplicate route detected: "{}"\n'
                 "URL paths must be unique.".format(path)
             )
-
-        entry = RouteEntry(view_func, name, path, methods, cors, token)
-        self.routes[path] = entry
+        self.routes[path] = RouteEntry(view_func, name, path, **kwargs)
 
     def _url_convert(self, path):
         path = "^{}$".format(path)  # full match
@@ -193,7 +194,14 @@ class API(object):
         return _register_view
 
     def response(
-        self, status, content_type, response_body, cors=False, methods=["GET"]
+        self,
+        status,
+        content_type,
+        response_body,
+        cors=False,
+        methods=["GET"],
+        compression="",
+        b64encode=False,
     ):
         """Return HTTP response.
 
@@ -201,13 +209,13 @@ class API(object):
 
         """
         statusCode = {
-            "OK": "200",
-            "EMPTY": "204",
-            "NOK": "400",
-            "FOUND": "302",
-            "NOT_FOUND": "404",
-            "CONFLICT": "409",
-            "ERROR": "500",
+            "OK": 200,
+            "EMPTY": 204,
+            "NOK": 400,
+            "FOUND": 302,
+            "NOT_FOUND": 404,
+            "CONFLICT": 409,
+            "ERROR": 500,
         }
 
         binary_types = [
@@ -222,7 +230,6 @@ class API(object):
 
         messageData = {
             "statusCode": statusCode[status],
-            "body": response_body,
             "headers": {"Content-Type": content_type},
         }
 
@@ -231,8 +238,15 @@ class API(object):
             messageData["headers"]["Access-Control-Allow-Methods"] = ",".join(methods)
             messageData["headers"]["Access-Control-Allow-Credentials"] = "true"
 
-        if content_type in binary_types:
+        if compression and content_type is not "application/zip":
+            response_body = gzip.compress(response_body)
+            messageData["headers"]["Content-Encoding"] = 'gzip'
+
+        if content_type in binary_types and b64encode:
             messageData["isBase64Encoded"] = True
+            messageData["body"] = base64.b64encode(response_body)
+        else:
+            messageData["body"] = response_body
 
         return messageData
 
@@ -299,10 +313,17 @@ class API(object):
                 json.dumps({"errorMessage": str(err)}),
             )
 
+        if route_entry.compression in self.current_request.headers.get("Accept-Encoding", ""):
+            compression = route_entry.compression
+        else:
+            compression = ""
+
         return self.response(
             response[0],
             response[1],
             response[2],
             cors=route_entry.cors,
             methods=route_entry.methods,
+            compression=compression,
+            b64encode=route_entry.b64encode,
         )
