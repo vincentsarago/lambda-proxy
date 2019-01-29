@@ -28,13 +28,6 @@ common: &common
         when: always
 
 jobs:
-  "python-2.7":
-    <<: *common
-    docker:
-      - image: circleci/python:2.7
-        environment:
-          - TOXENV=py27
-
   "python-3.6":
     <<: *common
     docker:
@@ -54,6 +47,5 @@ workflows:
   version: 2
   test:
     jobs:
-      - "python-2.7"
       - "python-3.6"
       - "python-3.7"

@@ -1,6 +1,16 @@
 Changes
 =======
 
+2.0.0 (TBD)
+------------------
+- add per-route response base64 encoding
+- add per-route response compression (gzip, zlig, deflate)
+- make "GET" the default method for the route
+
+**breacking change**
+- python3 support only
+- change header status code to Integer in response
+
 1.1.0 (2018-09-06)
 ------------------
 - pass through 'queryStringParameters' as function kwargs

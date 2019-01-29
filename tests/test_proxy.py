@@ -1,34 +1,61 @@
+"""Test lambda-proxy."""
+
+import zlib
+import base64
+
 import pytest
 from mock import Mock
 
-from lambda_proxy.proxy import Request, RouteEntry, API
+from lambda_proxy.proxy import RouteEntry, API
 
 
 funct = Mock(__name__="Mock")
 
 
-def test_Request_valid():
+def test_RouteEntry_default():
     """Should work as expected."""
-    event = {
-        "queryStringParameters": {"user": "remotepixel"},
-        "httpMethod": "GET",
-        "path": "/test",
-    }
-    req = Request(event)
-    assert req.query_params == {"user": "remotepixel"}
-    assert req.url == "/test"
-    assert req.method == "GET"
-
-
-def tes2t_RouteEntry_init():
-    """Should work as expected."""
-    route = RouteEntry(funct, "my-function", "/endpoint/test/<id>", ["GET"], True, True)
+    route = RouteEntry(funct, "my-function", "/endpoint/test/<id>")
     assert route.view_function == funct
     assert route.view_name == "my-function"
     assert route.methods == ["GET"]
-    assert route.view_args == []
+    # assert route.view_args == []
+    assert not route.cors
+    assert not route.token
+    assert not route.compression
+    assert not route.b64encode
+
+
+def test_RouteEntry_Options():
+    """Should work as expected."""
+    route = RouteEntry(
+        funct,
+        "my-function",
+        "/endpoint/test/<id>",
+        ["POST"],
+        cors=True,
+        token="Yo",
+        payload_compression_method="deflate",
+        binary_b64encode=True,
+    )
+    assert route.view_function == funct
+    assert route.view_name == "my-function"
+    assert route.methods == ["POST"]
+    # assert route.view_args == []
     assert route.cors
-    assert route.token
+    assert route.token == "Yo"
+    assert route.compression == "deflate"
+    assert route.b64encode
+
+
+def test_RouteEntry_invalidCompression():
+    """Should work as expected."""
+    with pytest.raises(ValueError):
+        RouteEntry(
+            funct,
+            "my-function",
+            "/endpoint/test/<id>",
+            payload_compression_method="nope",
+        )
 
 
 def test_API_init():
@@ -68,7 +95,7 @@ def test_API_logDebug():
 
 
 def test_API_addRoute():
-    """Add  and parse route."""
+    """Add and parse route."""
     app = API(app_name="test")
     assert not app.routes
 
@@ -95,6 +122,7 @@ def test_API():
     event = {
         "path": "/test/remotepixel",
         "httpMethod": "GET",
+        "headers": {},
         "queryStringParameters": {},
     }
     resp = {
@@ -105,27 +133,57 @@ def test_API():
             "Access-Control-Allow-Origin": "*",
             "Content-Type": "text/plain",
         },
-        "statusCode": "200",
+        "statusCode": 200,
     }
     res = app(event, {})
     assert res == resp
-    assert app.current_request.query_params == {}
-    assert app.current_request.url == "/test/remotepixel"
-    assert app.current_request.method == "GET"
     funct.assert_called_with("remotepixel")
 
-    funct = Mock(
-        __name__="Mock", return_value=("OK", "image/jpeg", "thisisafakeencodedjpeg")
-    )
+
+def test_API_encoding():
+    """Test b64 encoding."""
+    app = API(app_name="test")
+
+    body = b"thisisafakeencodedjpeg"
+    b64body = base64.b64encode(body).decode()
+
+    funct = Mock(__name__="Mock", return_value=("OK", "image/jpeg", body))
     app._add_route("/test/<user>.jpg", funct, methods=["GET"], cors=True)
 
     event = {
         "path": "/test/remotepixel.jpg",
         "httpMethod": "GET",
+        "headers": {},
         "queryStringParameters": {},
     }
     resp = {
-        "body": "thisisafakeencodedjpeg",
+        "body": body,
+        "headers": {
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Origin": "*",
+            "Content-Type": "image/jpeg",
+        },
+        "statusCode": 200,
+    }
+    res = app(event, {})
+    assert res == resp
+
+    app._add_route(
+        "/test_encode/<user>.jpg",
+        funct,
+        methods=["GET"],
+        cors=True,
+        binary_b64encode=True,
+    )
+    event = {
+        "path": "/test_encode/remotepixel.jpg",
+        "httpMethod": "GET",
+        "headers": {},
+        "queryStringParameters": {},
+    }
+    resp = {
+        "body": b64body,
         "headers": {
             "Access-Control-Allow-Credentials": "true",
             "Access-Control-Allow-Methods": "GET",
@@ -133,7 +191,165 @@ def test_API():
             "Content-Type": "image/jpeg",
         },
         "isBase64Encoded": True,
-        "statusCode": "200",
+        "statusCode": 200,
+    }
+    res = app(event, {})
+    assert res == resp
+
+
+def test_API_compression():
+    """Test compression and base64."""
+    body = b"thisisafakeencodedjpeg"
+    gzip_compress = zlib.compressobj(9, zlib.DEFLATED, zlib.MAX_WBITS | 16)
+    gzbody = gzip_compress.compress(body) + gzip_compress.flush()
+    b64gzipbody = base64.b64encode(gzbody).decode()
+
+    app = API(app_name="test")
+    funct = Mock(__name__="Mock", return_value=("OK", "image/jpeg", body))
+    app._add_route(
+        "/test_compress/<user>.jpg",
+        funct,
+        methods=["GET"],
+        cors=True,
+        payload_compression_method="gzip",
+    )
+
+    # Should compress because "Accept-Encoding" is in header
+    event = {
+        "path": "/test_compress/remotepixel.jpg",
+        "httpMethod": "GET",
+        "headers": {"Accept-Encoding": "gzip, deflate"},
+        "queryStringParameters": {},
+    }
+    resp = {
+        "body": gzbody,
+        "headers": {
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Origin": "*",
+            "Content-Encoding": "gzip",
+            "Content-Type": "image/jpeg",
+        },
+        "statusCode": 200,
+    }
+    res = app(event, {})
+    assert res == resp
+
+    # Should not compress because "Accept-Encoding" is missing in header
+    event = {
+        "path": "/test_compress/remotepixel.jpg",
+        "httpMethod": "GET",
+        "headers": {},
+        "queryStringParameters": {},
+    }
+    resp = {
+        "body": body,
+        "headers": {
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Origin": "*",
+            "Content-Type": "image/jpeg",
+        },
+        "statusCode": 200,
+    }
+    res = app(event, {})
+    assert res == resp
+
+    # Should compress and encode to base64
+    app._add_route(
+        "/test_compress_b64/<user>.jpg",
+        funct,
+        methods=["GET"],
+        cors=True,
+        payload_compression_method="gzip",
+        binary_b64encode=True,
+    )
+    event = {
+        "path": "/test_compress_b64/remotepixel.jpg",
+        "httpMethod": "GET",
+        "headers": {"Accept-Encoding": "gzip, deflate"},
+        "queryStringParameters": {},
+    }
+    resp = {
+        "body": b64gzipbody,
+        "headers": {
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Origin": "*",
+            "Content-Encoding": "gzip",
+            "Content-Type": "image/jpeg",
+        },
+        "isBase64Encoded": True,
+        "statusCode": 200,
+    }
+    res = app(event, {})
+    assert res == resp
+
+
+def test_API_otherCompression():
+    """Test other compression."""
+
+    body = b"thisisafakeencodedjpeg"
+    zlib_compress = zlib.compressobj(9, zlib.DEFLATED, zlib.MAX_WBITS)
+    deflate_compress = zlib.compressobj(9, zlib.DEFLATED, -zlib.MAX_WBITS)
+    zlibbody = zlib_compress.compress(body) + zlib_compress.flush()
+    deflbody = deflate_compress.compress(body) + deflate_compress.flush()
+
+    app = API(app_name="test")
+    funct = Mock(__name__="Mock", return_value=("OK", "image/jpeg", body))
+    app._add_route(
+        "/test_deflate/<user>.jpg",
+        funct,
+        methods=["GET"],
+        cors=True,
+        payload_compression_method="deflate",
+    )
+    app._add_route(
+        "/test_zlib/<user>.jpg",
+        funct,
+        methods=["GET"],
+        cors=True,
+        payload_compression_method="zlib",
+    )
+
+    # Zlib
+    event = {
+        "path": "/test_zlib/remotepixel.jpg",
+        "httpMethod": "GET",
+        "headers": {"Accept-Encoding": "zlib, gzip, deflate"},
+        "queryStringParameters": {},
+    }
+    resp = {
+        "body": zlibbody,
+        "headers": {
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Origin": "*",
+            "Content-Encoding": "zlib",
+            "Content-Type": "image/jpeg",
+        },
+        "statusCode": 200,
+    }
+    res = app(event, {})
+    assert res == resp
+
+    # Deflate
+    event = {
+        "path": "/test_deflate/remotepixel.jpg",
+        "httpMethod": "GET",
+        "headers": {"Accept-Encoding": "zlib, gzip, deflate"},
+        "queryStringParameters": {},
+    }
+    resp = {
+        "body": deflbody,
+        "headers": {
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Origin": "*",
+            "Content-Encoding": "deflate",
+            "Content-Type": "image/jpeg",
+        },
+        "statusCode": 200,
     }
     res = app(event, {})
     assert res == resp
@@ -148,12 +364,13 @@ def test_API_routeURL():
     event = {
         "route": "/users/remotepixel",
         "httpMethod": "GET",
+        "headers": {},
         "queryStringParameters": {},
     }
     resp = {
         "body": '{"errorMessage": "Missing route parameter"}',
         "headers": {"Content-Type": "application/json"},
-        "statusCode": "400",
+        "statusCode": 400,
     }
     res = app(event, {})
     assert res == resp
@@ -161,12 +378,13 @@ def test_API_routeURL():
     event = {
         "path": "/users/remotepixel",
         "httpMethod": "GET",
+        "headers": {},
         "queryStringParameters": {},
     }
     resp = {
         "body": '{"errorMessage": "No view function for: /users/remotepixel"}',
         "headers": {"Content-Type": "application/json"},
-        "statusCode": "400",
+        "statusCode": 400,
     }
     res = app(event, {})
     assert res == resp
@@ -174,12 +392,13 @@ def test_API_routeURL():
     event = {
         "path": "/test/remotepixel",
         "httpMethod": "POST",
+        "headers": {},
         "queryStringParameters": {},
     }
     resp = {
         "body": '{"errorMessage": "Unsupported method: POST"}',
         "headers": {"Content-Type": "application/json"},
-        "statusCode": "400",
+        "statusCode": 400,
     }
     res = app(event, {})
     assert res == resp
@@ -187,12 +406,13 @@ def test_API_routeURL():
     event = {
         "path": "/users/remotepixel",
         "httpMethod": "GET",
+        "headers": {},
         "queryStringParameters": {},
     }
     resp = {
         "body": '{"errorMessage": "No view function for: /users/remotepixel"}',
         "headers": {"Content-Type": "application/json"},
-        "statusCode": "400",
+        "statusCode": 400,
     }
     res = app(event, {})
     assert res == resp
@@ -200,12 +420,13 @@ def test_API_routeURL():
     event = {
         "path": "/test/users/remotepixel",
         "httpMethod": "GET",
+        "headers": {},
         "queryStringParameters": {},
     }
     resp = {
         "body": '{"errorMessage": "No view function for: /test/users/remotepixel"}',
         "headers": {"Content-Type": "application/json"},
-        "statusCode": "400",
+        "statusCode": 400,
     }
     res = app(event, {})
     assert res == resp
@@ -221,6 +442,7 @@ def test_API_routeURL():
     event = {
         "path": "/test/remotepixel/6b0d1f74-8f81-11e8-83fd-6a0003389b00/1/-1.0.jpeg",
         "httpMethod": "GET",
+        "headers": {},
         "queryStringParameters": {},
     }
     resp = {
@@ -231,7 +453,7 @@ def test_API_routeURL():
             "Access-Control-Allow-Origin": "*",
             "Content-Type": "text/plain",
         },
-        "statusCode": "200",
+        "statusCode": 200,
     }
     res = app(event, {})
     assert res == resp
@@ -255,6 +477,7 @@ def test_API_routeToken(monkeypatch):
     event = {
         "path": "/test/remotepixel",
         "httpMethod": "GET",
+        "headers": {},
         "queryStringParameters": {"access_token": "yo"},
     }
     resp = {
@@ -265,7 +488,7 @@ def test_API_routeToken(monkeypatch):
             "Access-Control-Allow-Origin": "*",
             "Content-Type": "text/plain",
         },
-        "statusCode": "200",
+        "statusCode": 200,
     }
     res = app(event, {})
     assert res == resp
@@ -274,6 +497,7 @@ def test_API_routeToken(monkeypatch):
     event = {
         "path": "/test/remotepixel",
         "httpMethod": "GET",
+        "headers": {},
         "queryStringParameters": {"inp": 1, "access_token": "yo"},
     }
     resp = {
@@ -284,7 +508,7 @@ def test_API_routeToken(monkeypatch):
             "Access-Control-Allow-Origin": "*",
             "Content-Type": "text/plain",
         },
-        "statusCode": "200",
+        "statusCode": 200,
     }
     res = app(event, {})
     assert res == resp
@@ -293,12 +517,13 @@ def test_API_routeToken(monkeypatch):
     event = {
         "path": "/test/remotepixel",
         "httpMethod": "GET",
+        "headers": {},
         "queryStringParameters": {"access_token": "yep"},
     }
     resp = {
         "body": '{"message": "Invalid access token"}',
         "headers": {"Content-Type": "application/json"},
-        "statusCode": "500",
+        "statusCode": 500,
     }
     res = app(event, {})
     assert res == resp
@@ -306,12 +531,13 @@ def test_API_routeToken(monkeypatch):
     event = {
         "path": "/test/remotepixel",
         "httpMethod": "GET",
+        "headers": {},
         "queryStringParameters": {"token": "yo"},
     }
     resp = {
         "body": '{"message": "Invalid access token"}',
         "headers": {"Content-Type": "application/json"},
-        "statusCode": "500",
+        "statusCode": 500,
     }
     res = app(event, {})
     assert res == resp
@@ -321,12 +547,13 @@ def test_API_routeToken(monkeypatch):
     event = {
         "path": "/test/remotepixel",
         "httpMethod": "GET",
+        "headers": {},
         "queryStringParameters": {"access_token": "yo"},
     }
     resp = {
         "body": '{"message": "Invalid access token"}',
         "headers": {"Content-Type": "application/json"},
-        "statusCode": "500",
+        "statusCode": 500,
     }
     res = app(event, {})
     assert res == resp
@@ -345,6 +572,7 @@ def test_API_functionError():
     event = {
         "path": "/test/remotepixel",
         "httpMethod": "GET",
+        "headers": {},
         "queryStringParameters": {},
     }
     resp = {
@@ -355,7 +583,7 @@ def test_API_functionError():
             "Access-Control-Allow-Origin": "*",
             "Content-Type": "application/json",
         },
-        "statusCode": "500",
+        "statusCode": 500,
     }
     res = app(event, {})
     assert res == resp
@@ -374,6 +602,7 @@ def test_API_Post():
     event = {
         "path": "/test/remotepixel",
         "httpMethod": "POST",
+        "headers": {},
         "queryStringParameters": {},
         "body": b"0001",
     }
@@ -385,18 +614,16 @@ def test_API_Post():
             "Access-Control-Allow-Origin": "*",
             "Content-Type": "text/plain",
         },
-        "statusCode": "200",
+        "statusCode": 200,
     }
     res = app(event, {})
     assert res == resp
-    assert app.current_request.query_params == {}
-    assert app.current_request.url == "/test/remotepixel"
-    assert app.current_request.method == "POST"
     funct.assert_called_with("remotepixel", body=b"0001")
 
     event = {
         "path": "/test/remotepixel",
         "httpMethod": "GET",
+        "headers": {},
         "queryStringParameters": {},
     }
     resp = {
@@ -407,13 +634,10 @@ def test_API_Post():
             "Access-Control-Allow-Origin": "*",
             "Content-Type": "text/plain",
         },
-        "statusCode": "200",
+        "statusCode": 200,
     }
     res = app(event, {})
     assert res == resp
-    assert app.current_request.query_params == {}
-    assert app.current_request.url == "/test/remotepixel"
-    assert app.current_request.method == "GET"
     funct.assert_called_with("remotepixel")
 
     # Clear logger handlers

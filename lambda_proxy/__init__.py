@@ -1,3 +1,3 @@
-# lambda_proxy
+"""lambda-proxy: A simple AWS Lambda proxy to handle API Gateway request."""
 
-__version__ = "1.1.0"
+__version__ = "2.0b8"

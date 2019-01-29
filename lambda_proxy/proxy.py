@@ -8,44 +8,51 @@ import os
 import re
 import sys
 import json
+import zlib
+import base64
 import logging
 
 _PARAMS = re.compile(r"<[a-zA-Z0-9_]+\:?[a-zA-Z0-9_]+>")
-
-
-class Request(object):
-    """The current request from API gateway."""
-
-    def __init__(self, event):
-        """Initialize request object."""
-        self.query_params = event["queryStringParameters"]
-        self.method = event["httpMethod"]
-        self.url = event["path"]
 
 
 class RouteEntry(object):
     """Decode request path."""
 
     def __init__(
-        self, view_function, view_name, path, methods, cors=False, token=False
+        self,
+        view_function,
+        view_name,
+        path,
+        methods=["GET"],
+        cors=False,
+        token="",
+        payload_compression_method="",
+        binary_b64encode=False,
     ):
         """Initialize route object."""
         self.view_function = view_function
         self.view_name = view_name
         self.uri_pattern = path
         self.methods = methods
-        self.view_args = self._parse_view_args()
+        # self.view_args = self._parse_view_args()
         self.cors = cors
         self.token = token
+        self.compression = payload_compression_method
+        self.b64encode = binary_b64encode
+        if self.compression and self.compression not in ["gzip", "zlib", "deflate"]:
+            raise ValueError(
+                f"'{payload_compression_method}' is not a supported compression"
+            )
 
-    def _parse_view_args(self):
-        if "{" not in self.uri_pattern:
-            return []
-
-        # The [1:-1] slice is to remove the braces
-        # e.g {foobar} -> foobar
-        results = [r[1:-1] for r in _PARAMS.findall(self.uri_pattern)]
-        return results
+    # TODO: are the view_args useful ?
+    # def _parse_view_args(self):
+    #     if "{" not in self.uri_pattern:
+    #         return []
+    #
+    #     # The [1:-1] slice is to remove the braces
+    #     # e.g {foobar} -> foobar
+    #     results = [r[1:-1] for r in _PARAMS.findall(self.uri_pattern)]
+    #     return results
 
     def __eq__(self, other):
         """Check for equality."""
@@ -61,7 +68,6 @@ class API(object):
         """Initialize API object."""
         self.app_name = app_name
         self.routes = {}
-        self.current_request = None
         self.debug = debug
         self.log = logging.getLogger(self.app_name)
         if configure_logs:
@@ -99,12 +105,14 @@ class API(object):
         name = kwargs.pop("name", view_func.__name__)
         methods = kwargs.pop("methods", ["GET"])
         cors = kwargs.pop("cors", False)
-        token = kwargs.pop("token", False)
+        token = kwargs.pop("token", "")
+        payload_compression = kwargs.pop("payload_compression_method", "")
+        binary_encode = kwargs.pop("binary_b64encode", False)
 
         if kwargs:
             raise TypeError(
-                "route() got unexpected keyword "
-                "arguments: {}".format(", ".join(list(kwargs)))
+                "TypeError: route() got unexpected keyword "
+                "arguments: %s" % ", ".join(list(kwargs))
             )
 
         if path in self.routes:
@@ -113,8 +121,16 @@ class API(object):
                 "URL paths must be unique.".format(path)
             )
 
-        entry = RouteEntry(view_func, name, path, methods, cors, token)
-        self.routes[path] = entry
+        self.routes[path] = RouteEntry(
+            view_func,
+            name,
+            path,
+            methods,
+            cors,
+            token,
+            payload_compression,
+            binary_encode,
+        )
 
     def _url_convert(self, path):
         path = "^{}$".format(path)  # full match
@@ -194,7 +210,15 @@ class API(object):
         return _register_view
 
     def response(
-        self, status, content_type, response_body, cors=False, methods=["GET"]
+        self,
+        status,
+        content_type,
+        response_body,
+        cors=False,
+        accepted_methods=[],
+        accepted_compression="",
+        compression="",
+        b64encode=False,
     ):
         """Return HTTP response.
 
@@ -202,13 +226,13 @@ class API(object):
 
         """
         statusCode = {
-            "OK": "200",
-            "EMPTY": "204",
-            "NOK": "400",
-            "FOUND": "302",
-            "NOT_FOUND": "404",
-            "CONFLICT": "409",
-            "ERROR": "500",
+            "OK": 200,
+            "EMPTY": 204,
+            "NOK": 400,
+            "FOUND": 302,
+            "NOT_FOUND": 404,
+            "CONFLICT": 409,
+            "ERROR": 500,
         }
 
         binary_types = [
@@ -223,17 +247,47 @@ class API(object):
 
         messageData = {
             "statusCode": statusCode[status],
-            "body": response_body,
             "headers": {"Content-Type": content_type},
         }
 
         if cors:
             messageData["headers"]["Access-Control-Allow-Origin"] = "*"
-            messageData["headers"]["Access-Control-Allow-Methods"] = ",".join(methods)
+            messageData["headers"]["Access-Control-Allow-Methods"] = ",".join(
+                accepted_methods
+            )
             messageData["headers"]["Access-Control-Allow-Credentials"] = "true"
 
-        if content_type in binary_types:
+        if compression and compression in accepted_compression:
+            messageData["headers"]["Content-Encoding"] = compression
+            if compression == "gzip":
+                gzip_compress = zlib.compressobj(9, zlib.DEFLATED, zlib.MAX_WBITS | 16)
+                response_body = (
+                    gzip_compress.compress(response_body) + gzip_compress.flush()
+                )
+            elif compression == "zlib":
+                zlib_compress = zlib.compressobj(9, zlib.DEFLATED, zlib.MAX_WBITS)
+                response_body = (
+                    zlib_compress.compress(response_body) + zlib_compress.flush()
+                )
+            elif compression == "deflate":
+                deflate_compress = zlib.compressobj(9, zlib.DEFLATED, -zlib.MAX_WBITS)
+                response_body = (
+                    deflate_compress.compress(response_body) + deflate_compress.flush()
+                )
+            else:
+                return self.response(
+                    "ERROR",
+                    "application/json",
+                    json.dumps(
+                        {"errorMessage": f"Unsupported compression mode: {compression}"}
+                    ),
+                )
+
+        if content_type in binary_types and b64encode:
             messageData["isBase64Encoded"] = True
+            messageData["body"] = base64.b64encode(response_body).decode()
+        else:
+            messageData["body"] = response_body
 
         return messageData
 
@@ -242,6 +296,8 @@ class API(object):
         self.log.debug(json.dumps(event.get("headers", {})))
         self.log.debug(json.dumps(event.get("queryStringParameters", {})))
         self.log.debug(json.dumps(event.get("pathParameters", {})))
+
+        headers = dict((key.lower(), value) for key, value in event["headers"].items())
 
         resource_path = event.get("path", None)
         if resource_path is None:
@@ -288,8 +344,6 @@ class API(object):
         if http_method == "POST":
             function_kwargs.update(dict(body=event.get("body")))
 
-        self.current_request = Request(event)
-
         try:
             response = route_entry.view_function(*function_args, **function_kwargs)
         except Exception as err:
@@ -305,5 +359,8 @@ class API(object):
             response[1],
             response[2],
             cors=route_entry.cors,
-            methods=route_entry.methods,
+            accepted_methods=route_entry.methods,
+            accepted_compression=headers.get("accept-encoding", ""),
+            compression=route_entry.compression,
+            b64encode=route_entry.b64encode,
         )
