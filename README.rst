@@ -11,7 +11,7 @@ lambda-proxy
 .. image:: https://codecov.io/gh/vincentsarago/lambda-proxy/branch/master/graph/badge.svg
   :target: https://codecov.io/gh/vincentsarago/lambda-proxy
 
-A simple AWS Lambda proxy to handle API Gateway request
+A simple proxy that can work on AWS Lambda as API-gateway proxy
 
 Install
 =======
@@ -44,7 +44,6 @@ With GET request
   >>> def print_id(id):
           return ('OK', 'plain/text', id))
 
-
 With POST request
 
 .. code-block:: python
@@ -56,8 +55,36 @@ With POST request
   >>> def print_id(id, body):
           return ('OK', 'plain/text', id))
 
+Binary responses
+----------------
+
+When working with binary on API-Gateway we must return a base64 encoded string
+
+.. code-block:: python
+
+  >>> from lambda_proxy.proxy import API
+  >>> APP = API(app_name="app")
+
+  >>> @APP.route('/test/tests/<filename>.jpg', methods=['GET'], cors=True, binary_b64encode=True)
+  >>> def print_id(filename):
+          with open(f"{filename}.jpg", "rb") as f:
+              return ('OK', 'image/jpeg', f.read()))
+
+
+Enable compression (happens only if "Accept-Encoding" if found in headers)
+
+.. code-block:: python
+
+  >>> from lambda_proxy.proxy import API
+  >>> APP = API(app_name="app")
+
+  >>> @APP.route('/test/tests/<filename>.jpg', methods=['GET'], cors=True, binary_b64encode=True, payload_compression_method="gzip")
+  >>> def print_id(filename):
+          with open(f"{filename}.jpg", "rb") as f:
+              return ('OK', 'image/jpeg', f.read()))
 
 Simple Auth token
+-----------------
 
 Lambda-proxy provide a simple token validation system.
 
@@ -74,6 +101,9 @@ Lambda-proxy provide a simple token validation system.
           return ('OK', 'plain/text', id))
 
 URL schema and request parameters
+---------------------------------
+
+QueryString parameters are passed as function's options.
 
 .. code-block:: python
 
@@ -95,21 +125,10 @@ requests:
   0001vincent
 
 
-License
--------
-
-See `LICENSE.txt <LICENSE.txt>`__.
-
-Authors
--------
-
-See `AUTHORS.txt <AUTHORS.txt>`__.
-
-Changes
--------
-
-See `CHANGES.txt <CHANGES.txt>`__.
-
+Examples
+========
+- https://github.com/vincentsarago/lambda-proxy/tree/master/example
+- https://github.com/RemotePixel/remotepixel-tiler
 
 Contribution & Devellopement
 ============================
@@ -137,3 +156,19 @@ This repo is set to use `pre-commit` to run *flake8*, *pydocstring* and *black* 
   Flake8...................................................................Passed
   Verifying PEP257 Compliance..............................................Passed
   $ git push origin
+
+
+License
+-------
+
+See `LICENSE.txt <LICENSE.txt>`__.
+
+Authors
+-------
+
+See `AUTHORS.txt <AUTHORS.txt>`__.
+
+Changes
+-------
+
+See `CHANGES.txt <CHANGES.txt>`__.
