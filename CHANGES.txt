@@ -1,7 +1,7 @@
 Changes
 =======
 
-2.0.0 (TBD)
+2.0.0 (2019-01-29)
 ------------------
 - add per-route response base64 encoding
 - add per-route response compression (gzip, zlig, deflate)
