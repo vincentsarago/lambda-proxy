@@ -25,7 +25,7 @@ class RouteEntry(object):
         path,
         methods=["GET"],
         cors=False,
-        token=False,
+        token="",
         payload_compression_method="",
         binary_b64encode=False,
     ):
@@ -34,7 +34,7 @@ class RouteEntry(object):
         self.view_name = view_name
         self.uri_pattern = path
         self.methods = methods
-        self.view_args = self._parse_view_args()
+        # self.view_args = self._parse_view_args()
         self.cors = cors
         self.token = token
         self.compression = payload_compression_method
@@ -44,14 +44,15 @@ class RouteEntry(object):
                 f"'{payload_compression_method}' is not a supported compression"
             )
 
-    def _parse_view_args(self):
-        if "{" not in self.uri_pattern:
-            return []
-
-        # The [1:-1] slice is to remove the braces
-        # e.g {foobar} -> foobar
-        results = [r[1:-1] for r in _PARAMS.findall(self.uri_pattern)]
-        return results
+    # TODO: are the view_args useful ?
+    # def _parse_view_args(self):
+    #     if "{" not in self.uri_pattern:
+    #         return []
+    #
+    #     # The [1:-1] slice is to remove the braces
+    #     # e.g {foobar} -> foobar
+    #     results = [r[1:-1] for r in _PARAMS.findall(self.uri_pattern)]
+    #     return results
 
     def __eq__(self, other):
         """Check for equality."""
@@ -102,12 +103,34 @@ class API(object):
 
     def _add_route(self, path, view_func, **kwargs):
         name = kwargs.pop("name", view_func.__name__)
+        methods = kwargs.pop("methods", ["GET"])
+        cors = kwargs.pop("cors", False)
+        token = kwargs.pop("token", "")
+        payload_compression = kwargs.pop("payload_compression_method", "")
+        binary_encode = kwargs.pop("binary_b64encode", False)
+
+        if kwargs:
+            raise TypeError(
+                "TypeError: route() got unexpected keyword "
+                "arguments: %s" % ", ".join(list(kwargs))
+            )
+
         if path in self.routes:
             raise ValueError(
                 'Duplicate route detected: "{}"\n'
                 "URL paths must be unique.".format(path)
             )
-        self.routes[path] = RouteEntry(view_func, name, path, **kwargs)
+
+        self.routes[path] = RouteEntry(
+            view_func,
+            name,
+            path,
+            methods,
+            cors,
+            token,
+            payload_compression,
+            binary_encode,
+        )
 
     def _url_convert(self, path):
         path = "^{}$".format(path)  # full match
