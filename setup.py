@@ -37,7 +37,7 @@ setup(
     keywords="AWS-Lambda API-Gateway Request Proxy",
     author=u"Vincent Sarago",
     author_email="vincent.sarago@gmail.com",
-    url="https://github.com/vincentsarago/lambda_proxy",
+    url="https://github.com/vincentsarago/lambda-proxy",
     license="BSD",
     packages=find_packages(exclude=["ez_setup", "examples", "tests"]),
     include_package_data=True,
