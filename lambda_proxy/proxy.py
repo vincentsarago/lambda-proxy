@@ -39,6 +39,10 @@ class RouteEntry(object):
         self.token = token
         self.compression = payload_compression_method
         self.b64encode = binary_b64encode
+        if self.compression and self.compression not in ["gzip", "zlib", "deflate"]:
+            raise ValueError(
+                f"'{payload_compression_method}' is not a supported compression"
+            )
 
     def _parse_view_args(self):
         if "{" not in self.uri_pattern:
@@ -189,7 +193,7 @@ class API(object):
         response_body,
         cors=False,
         accepted_methods=[],
-        accepted_compression=[],
+        accepted_compression="",
         compression="",
         b64encode=False,
     ):
@@ -230,7 +234,7 @@ class API(object):
             )
             messageData["headers"]["Access-Control-Allow-Credentials"] = "true"
 
-        if compression in accepted_compression:
+        if compression and compression in accepted_compression:
             messageData["headers"]["Content-Encoding"] = compression
             if compression == "gzip":
                 gzip_compress = zlib.compressobj(9, zlib.DEFLATED, zlib.MAX_WBITS | 16)
@@ -333,7 +337,7 @@ class API(object):
             response[2],
             cors=route_entry.cors,
             accepted_methods=route_entry.methods,
-            accepted_compression=headers.get("accept-encoding", []),
+            accepted_compression=headers.get("accept-encoding", ""),
             compression=route_entry.compression,
             b64encode=route_entry.b64encode,
         )
