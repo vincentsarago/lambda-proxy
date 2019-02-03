@@ -140,6 +140,60 @@ def test_API():
     funct.assert_called_with("remotepixel")
 
 
+def test_querystringNull():
+    """Add and parse route."""
+    app = API(app_name="test")
+    funct = Mock(__name__="Mock", return_value=("OK", "text/plain", "heyyyy"))
+    app._add_route("/test/<user>", funct, methods=["GET"], cors=True)
+
+    event = {
+        "path": "/test/remotepixel",
+        "httpMethod": "GET",
+        "headers": {},
+        "queryStringParameters": None,
+    }
+    resp = {
+        "body": "heyyyy",
+        "headers": {
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Origin": "*",
+            "Content-Type": "text/plain",
+        },
+        "statusCode": 200,
+    }
+    res = app(event, {})
+    assert res == resp
+    funct.assert_called_with("remotepixel")
+
+
+def test_headersNull():
+    """Add and parse route."""
+    app = API(app_name="test")
+    funct = Mock(__name__="Mock", return_value=("OK", "text/plain", "heyyyy"))
+    app._add_route("/test/<user>", funct, methods=["GET"], cors=True)
+
+    event = {
+        "path": "/test/remotepixel",
+        "httpMethod": "GET",
+        "headers": None,
+        "queryStringParameters": {},
+    }
+    resp = {
+        "body": "heyyyy",
+        "headers": {
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Origin": "*",
+            "Content-Type": "text/plain",
+        },
+        "statusCode": 200,
+    }
+    res = app(event, {})
+    assert res == resp
+    funct.assert_called_with("remotepixel")
+
+
 def test_API_encoding():
     """Test b64 encoding."""
     app = API(app_name="test")

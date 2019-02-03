@@ -297,7 +297,8 @@ class API(object):
         self.log.debug(json.dumps(event.get("queryStringParameters", {})))
         self.log.debug(json.dumps(event.get("pathParameters", {})))
 
-        headers = dict((key.lower(), value) for key, value in event["headers"].items())
+        headers = event.get("headers", {}) or {}
+        headers = dict((key.lower(), value) for key, value in headers.items())
 
         resource_path = event.get("path", None)
         if resource_path is None:
@@ -317,7 +318,7 @@ class API(object):
             )
 
         route_entry = self.routes[self._url_matching(resource_path)]
-        request_params = event.get("queryStringParameters", {})
+        request_params = event.get("queryStringParameters", {}) or {}
         if route_entry.token:
             if not self._validate_token(request_params.get("access_token")):
                 return self.response(

@@ -1,6 +1,10 @@
 Changes
 =======
 
+2.0.1 (2019-02-04)
+------------------
+- Fix bug when queryStringParameters or header are "None"
+
 2.0.0 (2019-01-29)
 ------------------
 - add per-route response base64 encoding
