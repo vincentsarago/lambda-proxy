@@ -38,14 +38,52 @@ jobs:
   "python-3.7":
     <<: *common
     docker:
-      - image: circleci/python:3.7.0
+      - image: circleci/python:3.7.2
         environment:
           - TOXENV=py37
           - UPLOAD_COVERAGE=1
 
+  deploy:
+      docker:
+        - image: circleci/python:3.7.2
+          environment:
+            - TOXENV=release
+      working_directory: ~/lambda-prox
+      steps:
+        - checkout
+        - run:
+            name: verify git tag vs. version
+            command: |
+              VERSION=$(python -c 'import lambda_proxy; print(lambda_proxy.__version__)')
+              if [ "$VERSION" = "$CIRCLE_TAG" ]; then exit 0; else exit 3; fi
+        - run:
+            name: install dependencies
+            command: pip install tox --user
+        - run:
+            name: init .pypirc
+            command: |
+              echo -e "[pypi]" >> ~/.pypirc
+              echo -e "username = $PYPI_USER" >> ~/.pypirc
+              echo -e "password = $PYPI_PASSWORD" >> ~/.pypirc
+        - run:
+            name: run tox
+            command: ~/.local/bin/tox
+
+
 workflows:
   version: 2
-  test:
+  test_and_deploy:
     jobs:
       - "python-3.6"
-      - "python-3.7"
+      - "python-3.7":
+          filters:  # required since `deploy` has tag filters AND requires `build`
+            tags:
+              only: /.*/
+      - deploy:
+          requires:
+            - "python-3.7"
+          filters:
+            tags:
+              only: /^[0-9]+.*/
+            branches:
+              ignore: /.*/

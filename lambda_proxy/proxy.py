@@ -259,6 +259,9 @@ class API(object):
 
         if compression and compression in accepted_compression:
             messageData["headers"]["Content-Encoding"] = compression
+            if isinstance(response_body, str):
+                response_body = bytes(response_body, "utf-8")
+
             if compression == "gzip":
                 gzip_compress = zlib.compressobj(9, zlib.DEFLATED, zlib.MAX_WBITS | 16)
                 response_body = (

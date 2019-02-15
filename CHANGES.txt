@@ -1,6 +1,9 @@
 Changes
 =======
 
+2.0.2 (2019-02-15)
+- fix bug when trying to compress txt
+
 2.0.1 (2019-02-04)
 ------------------
 - Fix bug when queryStringParameters or header are "None"
