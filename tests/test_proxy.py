@@ -1,5 +1,6 @@
 """Test lambda-proxy."""
 
+import json
 import zlib
 import base64
 
@@ -334,6 +335,65 @@ def test_API_compression():
             "Content-Type": "image/jpeg",
         },
         "isBase64Encoded": True,
+        "statusCode": 200,
+    }
+    res = app(event, {})
+    assert res == resp
+
+    funct = Mock(
+        __name__="Mock",
+        return_value=("OK", "application/json", json.dumps({"test": 0})),
+    )
+    # Should compress and encode to base64
+    app._add_route(
+        "/test_compress_b64/<user>.json",
+        funct,
+        methods=["GET"],
+        cors=True,
+        payload_compression_method="gzip",
+        binary_b64encode=True,
+    )
+    event = {
+        "path": "/test_compress_b64/remotepixel.json",
+        "httpMethod": "GET",
+        "headers": {"Accept-Encoding": "gzip, deflate"},
+        "queryStringParameters": {},
+    }
+
+    body = bytes(json.dumps({"test": 0}), "utf-8")
+    gzip_compress = zlib.compressobj(9, zlib.DEFLATED, zlib.MAX_WBITS | 16)
+    gzbody = gzip_compress.compress(body) + gzip_compress.flush()
+    b64gzipbody = base64.b64encode(gzbody).decode()
+    resp = {
+        "body": b64gzipbody,
+        "headers": {
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Origin": "*",
+            "Content-Encoding": "gzip",
+            "Content-Type": "application/json",
+        },
+        "isBase64Encoded": True,
+        "statusCode": 200,
+    }
+    res = app(event, {})
+    assert res == resp
+
+    event = {
+        "path": "/test_compress_b64/remotepixel.json",
+        "httpMethod": "GET",
+        "headers": {},
+        "queryStringParameters": {},
+    }
+
+    resp = {
+        "body": json.dumps({"test": 0}),
+        "headers": {
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Origin": "*",
+            "Content-Type": "application/json",
+        },
         "statusCode": 200,
     }
     res = app(event, {})

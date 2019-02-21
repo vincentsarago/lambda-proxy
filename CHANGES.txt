@@ -1,6 +1,9 @@
 Changes
 =======
 
+2.0.3 (2019-02-21)
+- fix base64 encoding when compressing non-binary body
+
 2.0.2 (2019-02-15)
 - fix bug when trying to compress txt
 

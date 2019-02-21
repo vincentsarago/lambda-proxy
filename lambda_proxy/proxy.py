@@ -286,7 +286,9 @@ class API(object):
                     ),
                 )
 
-        if content_type in binary_types and b64encode:
+        if (
+            content_type in binary_types or not isinstance(response_body, str)
+        ) and b64encode:
             messageData["isBase64Encoded"] = True
             messageData["body"] = base64.b64encode(response_body).decode()
         else:
