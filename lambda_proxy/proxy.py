@@ -68,6 +68,8 @@ class API(object):
         """Initialize API object."""
         self.app_name = app_name
         self.routes = {}
+        self.context = {}
+        self.event = {}
         self.debug = debug
         self.log = logging.getLogger(self.app_name)
         if configure_logs:
@@ -209,6 +211,22 @@ class API(object):
 
         return _register_view
 
+    def pass_context(self, f):
+        """Pass context to the function."""
+
+        def new_func(*args, **kwargs):
+            return f(self.context, *args, **kwargs)
+
+        return new_func
+
+    def pass_event(self, f):
+        """Pass event to the function."""
+
+        def new_func(*args, **kwargs):
+            return f(self.event, *args, **kwargs)
+
+        return new_func
+
     def response(
         self,
         status,
@@ -301,6 +319,9 @@ class API(object):
         self.log.debug(json.dumps(event.get("headers", {})))
         self.log.debug(json.dumps(event.get("queryStringParameters", {})))
         self.log.debug(json.dumps(event.get("pathParameters", {})))
+
+        self.event = event
+        self.context = context
 
         headers = event.get("headers", {}) or {}
         headers = dict((key.lower(), value) for key, value in headers.items())
