@@ -135,9 +135,9 @@ Pass event and context to the handler function.
   >>> from lambda_proxy.proxy import API
   >>> APP = API(app_name="app")
 
-  >>> @app.route("/<id>", methods=["GET"], cors=True)
-  >>> @app.pass_event
-  >>> @app.pass_context
+  >>> @APP.route("/<id>", methods=["GET"], cors=True)
+  >>> @APP.pass_event
+  >>> @APP.pass_context
   >>> def print_id(ctx, evt, id):
       print(ctx)
       print(evt)
