@@ -42,7 +42,7 @@ With GET request
 
   >>> @APP.route('/test/tests/<id>', methods=['GET'], cors=True)
   >>> def print_id(id):
-          return ('OK', 'plain/text', id))
+          return ('OK', 'plain/text', id)
 
 With POST request
 
@@ -53,7 +53,7 @@ With POST request
 
   >>> @APP.route('/test/tests/<id>', methods=['POST'], cors=True)
   >>> def print_id(id, body):
-          return ('OK', 'plain/text', id))
+          return ('OK', 'plain/text', id)
 
 Binary responses
 ----------------
@@ -68,7 +68,7 @@ When working with binary on API-Gateway we must return a base64 encoded string
   >>> @APP.route('/test/tests/<filename>.jpg', methods=['GET'], cors=True, binary_b64encode=True)
   >>> def print_id(filename):
           with open(f"{filename}.jpg", "rb") as f:
-              return ('OK', 'image/jpeg', f.read()))
+              return ('OK', 'image/jpeg', f.read())
 
 
 Enable compression (happens only if "Accept-Encoding" if found in headers)
@@ -81,7 +81,7 @@ Enable compression (happens only if "Accept-Encoding" if found in headers)
   >>> @APP.route('/test/tests/<filename>.jpg', methods=['GET'], cors=True, binary_b64encode=True, payload_compression_method="gzip")
   >>> def print_id(filename):
           with open(f"{filename}.jpg", "rb") as f:
-              return ('OK', 'image/jpeg', f.read()))
+              return ('OK', 'image/jpeg', f.read())
 
 Simple Auth token
 -----------------
@@ -98,7 +98,7 @@ Lambda-proxy provide a simple token validation system.
 
   >>> @APP.route('/test/tests/<id>', methods=['GET'], cors=True, token=True)
   >>> def print_id(id):
-          return ('OK', 'plain/text', id))
+          return ('OK', 'plain/text', id)
 
 URL schema and request parameters
 ---------------------------------
@@ -112,7 +112,7 @@ QueryString parameters are passed as function's options.
 
   >>> @APP.route('/test/tests/<id>', methods=['GET'], cors=True)
   >>> def print_id(id, name=None):
-          return ('OK', 'plain/text', f"{id}{name}"))
+          return ('OK', 'plain/text', f"{id}{name}")
 
 requests:
 
@@ -123,6 +123,25 @@ requests:
 
   >>> curl /test/tests/000001?name=vincent
   0001vincent
+
+
+Context and Event passing
+-------------------------
+
+Pass event and context to the handler function.
+
+.. code-block:: python
+
+  >>> from lambda_proxy.proxy import API
+  >>> APP = API(app_name="app")
+
+  >>> @APP.route("/<id>", methods=["GET"], cors=True)
+  >>> @APP.pass_event
+  >>> @APP.pass_context
+  >>> def print_id(ctx, evt, id):
+      print(ctx)
+      print(evt)
+      return ('OK', 'plain/text', f"{id}")
 
 
 Examples
@@ -145,7 +164,8 @@ Issues and pull requests are more than welcome.
 
 *Python >3.6 only*
 
-This repo is set to use `pre-commit` to run *flake8*, *pydocstring* and *black* ("uncompromising Python code formatter") when committing new code.
+This repo is set to use `pre-commit` to run *flake8*, *pydocstring* and
+ *black* ("uncompromising Python code formatter") when committing new code.
 
 .. code-block:: console
 

@@ -757,3 +757,44 @@ def test_API_Post():
     # Clear logger handlers
     for h in app.log.handlers:
         app.log.removeHandler(h)
+
+
+def test_API_ctx():
+    """Should work as expected and pass ctx and evt to the function."""
+    app = API(app_name="test")
+
+    @app.route("/<id>", methods=["GET"], cors=True)
+    @app.pass_event
+    @app.pass_context
+    def print_id(ctx, evt, id, params=None):
+        return (
+            "OK",
+            "application/json",
+            {"ctx": ctx, "evt": evt, "id": id, "params": params},
+        )
+
+    event = {
+        "path": "/remotepixel",
+        "httpMethod": "GET",
+        "headers": {},
+        "queryStringParameters": {"params": "1"},
+    }
+    headers = {
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "GET",
+        "Access-Control-Allow-Origin": "*",
+        "Content-Type": "application/json",
+    }
+
+    res = app(event, {"ctx": "jqtrde"})
+    body = res["body"]
+    assert res["headers"] == headers
+    assert res["statusCode"] == 200
+    assert body["id"] == "remotepixel"
+    assert body["params"] == "1"
+    assert body["evt"] == event
+    assert body["ctx"] == {"ctx": "jqtrde"}
+
+    # Clear logger handlers
+    for h in app.log.handlers:
+        app.log.removeHandler(h)
