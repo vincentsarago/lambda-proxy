@@ -1,6 +1,12 @@
 Changes
 =======
 
+3.0.0 (2019-03-05)
+- fix regular expression
+
+**breacking change**
+- forward function inputs as `named arguments` instead of positional arguments. 
+
 2.0.4 (2019-02-26)
 - allow `context` and `event` passing to the function (#7)
 

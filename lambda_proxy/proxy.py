@@ -12,7 +12,11 @@ import zlib
 import base64
 import logging
 
-_PARAMS = re.compile(r"<[a-zA-Z0-9_]+\:?[a-zA-Z0-9_]+>")
+param_pattern = re.compile(
+    r"^<" r"(?P<type>[a-zA-Z0-9_]+\:)?" r"(?P<name>[a-zA-Z0-9_]+)" r">$"
+)
+
+params_expr = re.compile(r"<([a-zA-Z0-9_]+\:)?[a-zA-Z0-9_]+>")
 
 
 class RouteEntry(object):
@@ -34,7 +38,6 @@ class RouteEntry(object):
         self.view_name = view_name
         self.uri_pattern = path
         self.methods = methods
-        # self.view_args = self._parse_view_args()
         self.cors = cors
         self.token = token
         self.compression = payload_compression_method
@@ -43,16 +46,6 @@ class RouteEntry(object):
             raise ValueError(
                 f"'{payload_compression_method}' is not a supported compression"
             )
-
-    # TODO: are the view_args useful ?
-    # def _parse_view_args(self):
-    #     if "{" not in self.uri_pattern:
-    #         return []
-    #
-    #     # The [1:-1] slice is to remove the braces
-    #     # e.g {foobar} -> foobar
-    #     results = [r[1:-1] for r in _PARAMS.findall(self.uri_pattern)]
-    #     return results
 
     def __eq__(self, other):
         """Check for equality."""
@@ -157,39 +150,37 @@ class API(object):
         return ""
 
     def _converters(self, value, pathArg):
-        conv_expr = re.compile(r"<[a-zA-Z0-9_]+\:[a-zA-Z0-9_]+>")
-        if conv_expr.match(pathArg):
-            if pathArg.split(":")[0] == "<int":
-                return int(eval(value))
-
-            elif pathArg.split(":")[0] == "<float":
-                return float(eval(value))
-
-            elif pathArg.split(":")[0] == "<string":
+        match = param_pattern.match(pathArg)
+        if match:
+            arg_type = match.groupdict()["type"]
+            if arg_type == "int:":
+                return int(value)
+            elif arg_type == "float:":
+                return float(value)
+            elif arg_type == "string:":
                 return value
-
-            elif pathArg.split(":")[0] == "<uuid":
+            elif arg_type == "uuid:":
                 return value
-
             else:
                 return value
-
         else:
             return value
 
     def _get_matching_args(self, route, url):
-        route_expr = re.compile(r"<[a-zA-Z0-9_]+\:?[a-zA-Z0-9_]+>")
         url_expr = re.compile(self._url_convert(route))
 
-        route_args = route_expr.findall(route)
+        route_args = [i.group() for i in params_expr.finditer(route)]
         url_args = url_expr.match(url).groups()
+
+        names = [param_pattern.match(arg).groupdict()["name"] for arg in route_args]
 
         args = [
             self._converters(u, route_args[id])
             for id, u in enumerate(url_args)
             if u != route_args[id]
         ]
-        return args
+
+        return dict(zip(names, args))
 
     def _validate_token(self, token=None):
         env_token = os.environ.get("TOKEN")
@@ -366,13 +357,15 @@ class API(object):
         # remove access_token from kwargs
         request_params.pop("access_token", False)
 
-        function_args = self._get_matching_args(route_entry.uri_pattern, resource_path)
-        function_kwargs = request_params.copy()
+        function_kwargs = self._get_matching_args(
+            route_entry.uri_pattern, resource_path
+        )
+        function_kwargs.update(request_params.copy())
         if http_method == "POST":
             function_kwargs.update(dict(body=event.get("body")))
 
         try:
-            response = route_entry.view_function(*function_args, **function_kwargs)
+            response = route_entry.view_function(**function_kwargs)
         except Exception as err:
             self.log.error(str(err))
             response = (

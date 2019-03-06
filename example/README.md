@@ -2,7 +2,12 @@ Lambda-proxy example
 --------------------
 
 ```
-$ pip install lambda-proxy -U
+$ git clone https://github.com/vincentsarag/lambda-proxy.git
+$ cd lambda-proxy
+$ pip install -U pip
+$ pip install -e .
+
+$ cd example
 
 $ python cli.py
 ```
@@ -11,13 +16,13 @@ $ python cli.py
 
 ```python
 @APP.route(
-    "/",
+    "/<user>",
     methods=["GET"],
     cors=True,
 )
-def main():
+def main(user):
     """Return JSON Object."""
-    return ("OK", "text/plain", "Yo")
+    return ("OK", "text/plain", user)
 ```
 
 ```
@@ -32,6 +37,25 @@ $ curl -i http://127.0.0.1:8000/
     > Access-Control-Allow-Credentials: true
 
     YO%
+```
+
+##### With multiple routes
+```
+@APP.route("/<string:user>", methods=["GET"], cors=True)
+@APP.route("/<string:user>@<int:num>", methods=["GET"], cors=True)
+def main(user, num=0):
+    """Return JSON Object."""
+    return ("OK", "text/plain", f"{user}-{num}")
+```
+
+```
+$ curl -i http://127.0.0.1:8000/jqtdre
+
+    jqtdre-0%
+
+$ curl -i http://127.0.0.1:8000/jqtdre@2
+
+    jqtdre-2%
 ```
 
 #### json

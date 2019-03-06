@@ -110,7 +110,7 @@ QueryString parameters are passed as function's options.
   >>> from lambda_proxy.proxy import API
   >>> APP = API(app_name="app")
 
-  >>> @APP.route('/test/tests/<id>', methods=['GET'], cors=True)
+  >>> @APP.route('/<id>', methods=['GET'], cors=True)
   >>> def print_id(id, name=None):
           return ('OK', 'plain/text', f"{id}{name}")
 
@@ -118,12 +118,37 @@ requests:
 
 .. code-block::
 
-  >>> curl /test/tests/000001
+  >>> curl /000001
   0001
 
-  >>> curl /test/tests/000001?name=vincent
+  >>> curl /000001?name=vincent
   0001vincent
 
+
+With multiple routes
+
+.. code-block:: python
+
+  >>> from lambda_proxy.proxy import API
+  >>> APP = API(app_name="app")
+
+  >>> @APP.route('/<id>', methods=['GET'], cors=True)
+  >>> @APP.route('/<id>/<int:number>', methods=['GET'], cors=True)
+  >>> def print_id(id, number=None, name=None):
+          return ('OK', 'plain/text', f"{id}-{name}-{number}")
+
+requests:
+
+.. code-block::
+
+  >>> curl /000001
+  0001--
+
+  >>> curl /000001?name=vincent
+  0001-vincent-
+
+  >>> curl /000001/1?name=vincent
+  0001-vincent-1
 
 Context and Event passing
 -------------------------

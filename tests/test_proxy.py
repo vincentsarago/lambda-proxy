@@ -19,7 +19,6 @@ def test_RouteEntry_default():
     assert route.view_function == funct
     assert route.view_name == "my-function"
     assert route.methods == ["GET"]
-    # assert route.view_args == []
     assert not route.cors
     assert not route.token
     assert not route.compression
@@ -41,7 +40,6 @@ def test_RouteEntry_Options():
     assert route.view_function == funct
     assert route.view_name == "my-function"
     assert route.methods == ["POST"]
-    # assert route.view_args == []
     assert route.cors
     assert route.token == "Yo"
     assert route.compression == "deflate"
@@ -118,10 +116,10 @@ def test_API():
     """Add and parse route."""
     app = API(app_name="test")
     funct = Mock(__name__="Mock", return_value=("OK", "text/plain", "heyyyy"))
-    app._add_route("/test/<user>", funct, methods=["GET"], cors=True)
+    app._add_route("/test/<string:user>/<name>", funct, methods=["GET"], cors=True)
 
     event = {
-        "path": "/test/remotepixel",
+        "path": "/test/remote/pixel",
         "httpMethod": "GET",
         "headers": {},
         "queryStringParameters": {},
@@ -138,7 +136,7 @@ def test_API():
     }
     res = app(event, {})
     assert res == resp
-    funct.assert_called_with("remotepixel")
+    funct.assert_called_with(user="remote", name="pixel")
 
 
 def test_querystringNull():
@@ -165,7 +163,7 @@ def test_querystringNull():
     }
     res = app(event, {})
     assert res == resp
-    funct.assert_called_with("remotepixel")
+    funct.assert_called_with(user="remotepixel")
 
 
 def test_headersNull():
@@ -192,7 +190,7 @@ def test_headersNull():
     }
     res = app(event, {})
     assert res == resp
-    funct.assert_called_with("remotepixel")
+    funct.assert_called_with(user="remotepixel")
 
 
 def test_API_encoding():
@@ -572,7 +570,11 @@ def test_API_routeURL():
     res = app(event, {})
     assert res == resp
     funct.assert_called_with(
-        "remotepixel", "6b0d1f74-8f81-11e8-83fd-6a0003389b00", 1, -1.0, "jpeg"
+        v="remotepixel",
+        uuid="6b0d1f74-8f81-11e8-83fd-6a0003389b00",
+        z=1,
+        x=-1.0,
+        ext="jpeg",
     )
 
     # Clear logger handlers
@@ -606,7 +608,7 @@ def test_API_routeToken(monkeypatch):
     }
     res = app(event, {})
     assert res == resp
-    funct.assert_called_with("remotepixel")
+    funct.assert_called_with(user="remotepixel")
 
     event = {
         "path": "/test/remotepixel",
@@ -626,7 +628,7 @@ def test_API_routeToken(monkeypatch):
     }
     res = app(event, {})
     assert res == resp
-    funct.assert_called_with("remotepixel", inp=1)
+    funct.assert_called_with(user="remotepixel", inp=1)
 
     event = {
         "path": "/test/remotepixel",
@@ -732,7 +734,7 @@ def test_API_Post():
     }
     res = app(event, {})
     assert res == resp
-    funct.assert_called_with("remotepixel", body=b"0001")
+    funct.assert_called_with(user="remotepixel", body=b"0001")
 
     event = {
         "path": "/test/remotepixel",
@@ -752,7 +754,7 @@ def test_API_Post():
     }
     res = app(event, {})
     assert res == resp
-    funct.assert_called_with("remotepixel")
+    funct.assert_called_with(user="remotepixel")
 
     # Clear logger handlers
     for h in app.log.handlers:
@@ -794,6 +796,60 @@ def test_API_ctx():
     assert body["params"] == "1"
     assert body["evt"] == event
     assert body["ctx"] == {"ctx": "jqtrde"}
+
+    # Clear logger handlers
+    for h in app.log.handlers:
+        app.log.removeHandler(h)
+
+
+def test_API_multipleRoute():
+    """Should work as expected."""
+    app = API(app_name="test")
+
+    @app.route("/<user>", methods=["GET"], cors=True)
+    @app.route("/<user>@<int:num>", methods=["GET"], cors=True)
+    def print_id(user, num=None, params=None):
+        return (
+            "OK",
+            "application/json",
+            json.dumps({"user": user, "num": num, "params": params}),
+        )
+
+    event = {
+        "path": "/remotepixel",
+        "httpMethod": "GET",
+        "headers": {},
+        "queryStringParameters": {},
+    }
+    headers = {
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "GET",
+        "Access-Control-Allow-Origin": "*",
+        "Content-Type": "application/json",
+    }
+
+    res = app(event, {})
+    body = json.loads(res["body"])
+    assert res["statusCode"] == 200
+    assert res["headers"] == headers
+    assert body["user"] == "remotepixel"
+    assert not body.get("num")
+    assert not body.get("params")
+
+    event = {
+        "path": "/remotepixel@1",
+        "httpMethod": "GET",
+        "headers": {},
+        "queryStringParameters": {"params": "1"},
+    }
+
+    res = app(event, {})
+    body = json.loads(res["body"])
+    assert res["statusCode"] == 200
+    assert res["headers"] == headers
+    assert body["user"] == "remotepixel"
+    assert body["num"] == 1
+    assert body["params"] == "1"
 
     # Clear logger handlers
     for h in app.log.handlers:

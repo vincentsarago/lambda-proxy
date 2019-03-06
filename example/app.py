@@ -13,6 +13,13 @@ def main():
     return ("OK", "text/plain", "Yo")
 
 
+@APP.route("/<string:user>", methods=["GET"], cors=True)
+@APP.route("/<string:user>/<int:num>", methods=["GET"], cors=True)
+def double(user, num=0):
+    """Return JSON Object."""
+    return ("OK", "text/plain", f"{user}-{num}")
+
+
 @APP.route("/json", methods=["GET"], cors=True)
 def json_handler():
     """Return JSON Object."""
