@@ -3,6 +3,8 @@
 Freely adapted from https://github.com/aws/chalice
 
 """
+from typing import Any, Callable, Dict, List
+import inspect
 
 import os
 import re
@@ -12,6 +14,7 @@ import zlib
 import base64
 import logging
 
+
 param_pattern = re.compile(
     r"^<" r"(?P<type>[a-zA-Z0-9_]+\:)?" r"(?P<name>[a-zA-Z0-9_]+)" r">$"
 )
@@ -19,29 +22,64 @@ param_pattern = re.compile(
 params_expr = re.compile(r"<([a-zA-Z0-9_]+\:)?[a-zA-Z0-9_]+>")
 
 
+def _url_convert(path):
+    path = "^{}$".format(path)  # full match
+    path = re.sub(r"<[a-zA-Z0-9_]+>", r"([a-zA-Z0-9_]+)", path)
+    path = re.sub(r"<string\:[a-zA-Z0-9_]+>", r"([a-zA-Z0-9_]+)", path)
+    path = re.sub(r"<int\:[a-zA-Z0-9_]+>", r"([0-9]+)", path)
+    path = re.sub(r"<float\:[a-zA-Z0-9_]+>", "([+-]?[0-9]+.[0-9]+)", path)
+    path = re.sub(
+        r"<uuid\:[a-zA-Z0-9_]+>",
+        "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})",
+        path,
+    )
+
+    return path
+
+
+def _converters(value, pathArg):
+    match = param_pattern.match(pathArg)
+    if match:
+        arg_type = match.groupdict()["type"]
+        if arg_type == "int:":
+            return int(value)
+        elif arg_type == "float:":
+            return float(value)
+        elif arg_type == "string:":
+            return value
+        elif arg_type == "uuid:":
+            return value
+        else:
+            return value
+    else:
+        return value
+
+
 class RouteEntry(object):
     """Decode request path."""
 
     def __init__(
         self,
-        view_function,
-        view_name,
-        path,
-        methods=["GET"],
-        cors=False,
-        token="",
-        payload_compression_method="",
-        binary_b64encode=False,
-    ):
+        endpoint: Callable,
+        path: str,
+        methods: List = ["GET"],
+        cors: bool = False,
+        token: str = "",
+        payload_compression_method: str = "",
+        binary_b64encode: bool = False,
+        description: str = None,
+        tag: str = None,
+    ) -> None:
         """Initialize route object."""
-        self.view_function = view_function
-        self.view_name = view_name
-        self.uri_pattern = path
+        self.endpoint = endpoint
+        self.path = path
         self.methods = methods
         self.cors = cors
         self.token = token
         self.compression = payload_compression_method
         self.b64encode = binary_b64encode
+        self.description = description or self.endpoint.__doc__
+        self.tag = tag
         if self.compression and self.compression not in ["gzip", "zlib", "deflate"]:
             raise ValueError(
                 f"'{payload_compression_method}' is not a supported compression"
@@ -51,22 +89,151 @@ class RouteEntry(object):
         """Check for equality."""
         return self.__dict__ == other.__dict__
 
+    def _get_path_args(self):
+        route_args = [i.group() for i in params_expr.finditer(self.path)]
+        args = [param_pattern.match(arg).groupdict() for arg in route_args]
+        return args
+
 
 class API(object):
     """API."""
 
     FORMAT_STRING = "[%(name)s] - [%(levelname)s] - %(message)s"
 
-    def __init__(self, app_name, configure_logs=True, debug=False):
+    def __init__(
+        self,
+        name: str,
+        version: str = "0.0.1",
+        description: str = None,
+        configure_logs: bool = True,
+        debug: bool = False,
+    ):
         """Initialize API object."""
-        self.app_name = app_name
-        self.routes = {}
-        self.context = {}
-        self.event = {}
+        self.name = name
+        self.description = description
+        self.version = version
+        self.routes: Dict = {}
+        self.context: Dict = {}
+        self.event: Dict = {}
         self.debug = debug
-        self.log = logging.getLogger(self.app_name)
+        self.log = logging.getLogger(self.name)
         if configure_logs:
             self._configure_logging()
+
+    def _get_parameters(self, route: RouteEntry):
+        argspath_schema = {
+            "default": {"type": "string"},
+            "string:": {"type": "string"},
+            "str:": {"type": "string"},
+            "uuid:": {"type": "string", "format": "uuid"},
+            "int:": {"type": "integer"},
+            "float:": {"type": "number", "format": "float"},
+        }
+
+        args_in_path = route._get_path_args()
+        endpoint_args = inspect.signature(route.endpoint).parameters
+        endpoint_args_names = list(endpoint_args.keys())
+
+        parameters: List[Dict] = []
+        for arg in args_in_path:
+            annotation = endpoint_args[arg["name"]]
+            endpoint_args_names.remove(arg["name"])
+
+            if arg["type"] is not None:
+                schema = argspath_schema[arg["type"]]
+            else:
+                schema = argspath_schema["default"]
+
+            parameter = {
+                "name": arg["name"],
+                "in": "path",
+                "schema": {"type": schema["type"]},
+            }
+            if schema.get("format"):
+                parameter["schema"]["format"] = schema.get("format")
+
+            if annotation.default is not inspect.Parameter.empty:
+                parameter["schema"]["default"] = annotation.default
+            else:
+                parameter["required"] = True
+
+            parameters.append(parameter)
+
+        for name, arg in endpoint_args.items():
+            if name not in endpoint_args_names:
+                continue
+
+            parameter = {"name": name, "in": "query", "schema": {}}
+            if arg.default is not inspect.Parameter.empty:
+                parameter["schema"]["default"] = arg.default
+            else:
+                parameter["schema"]["format"] = "string"
+                parameter["required"] = True
+
+            parameters.append(parameter)
+        return parameters
+
+    def _get_openapi(self, openapi_version: str = "3.0.2") -> Dict:
+        """Get OpenAPI documentation."""
+        info = {"title": self.name, "version": self.version}
+        if self.description:
+            info["description"] = self.description
+        output = {"openapi": openapi_version, "info": info}
+
+        security_schemes = {
+            "type": "apiKey",
+            "description": "Simple token authentification",
+            "in": "query",
+            "name": "access_token",
+        }
+
+        components: Dict[str, Dict] = {}
+        paths: Dict[str, Dict] = {}
+
+        for route_path, route in self.routes.items():
+            path: Dict[str, Dict] = {}
+
+            default_operation: Dict[str, Any] = {}
+            if route.tag:
+                default_operation["tags"] = route.tag
+            if route.description:
+                default_operation["description"] = route.description
+            if route.token:
+                components.setdefault("securitySchemes", {}).update(security_schemes)
+                default_operation["security"] = {"access_token": []}
+
+            parameters = self._get_parameters(route)
+            if parameters:
+                default_operation["parameters"] = parameters
+
+            default_operation["responses"] = {
+                400: {"description": "Not found"},
+                500: {"description": "Internal error"},
+            }
+
+            for method in route.methods:
+                operation = default_operation.copy()
+                operation_id = f"{self.name}-{route.path}"
+                operation_id = (
+                    operation_id.replace("<", "_").replace(">", "_").replace("/", "_")
+                )
+                operation_id = operation_id + "_" + method.lower()
+                operation["operationId"] = operation_id
+
+                # METHODS_WITH_BODY
+                if method in ["PUT", "POST", "DELETE", "PATCH"]:
+                    # remove body parameter and add "requestBody"
+                    print(method)
+
+                path[method.lower()] = operation
+
+            paths.setdefault(route.path, {}).update(path)
+
+        if components:
+            output["components"] = components
+
+        output["paths"] = paths
+        return output
 
     def _configure_logging(self):
         if self._already_configured(self.log):
@@ -96,8 +263,7 @@ class API(object):
 
         return False
 
-    def _add_route(self, path, view_func, **kwargs):
-        name = kwargs.pop("name", view_func.__name__)
+    def _add_route(self, path, endpoint, **kwargs):
         methods = kwargs.pop("methods", ["GET"])
         cors = kwargs.pop("cors", False)
         token = kwargs.pop("token", "")
@@ -117,57 +283,20 @@ class API(object):
             )
 
         self.routes[path] = RouteEntry(
-            view_func,
-            name,
-            path,
-            methods,
-            cors,
-            token,
-            payload_compression,
-            binary_encode,
+            endpoint, path, methods, cors, token, payload_compression, binary_encode
         )
-
-    def _url_convert(self, path):
-        path = "^{}$".format(path)  # full match
-        path = re.sub(r"<[a-zA-Z0-9_]+>", r"([a-zA-Z0-9_]+)", path)
-        path = re.sub(r"<string\:[a-zA-Z0-9_]+>", r"([a-zA-Z0-9_]+)", path)
-        path = re.sub(r"<int\:[a-zA-Z0-9_]+>", r"([0-9]+)", path)
-        path = re.sub(r"<float\:[a-zA-Z0-9_]+>", "([+-]?[0-9]+.[0-9]+)", path)
-        path = re.sub(
-            r"<uuid\:[a-zA-Z0-9_]+>",
-            "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})",
-            path,
-        )
-        return path
 
     def _url_matching(self, url):
         for path, function in self.routes.items():
-            route_expr = self._url_convert(path)
+            route_expr = _url_convert(path)
             expr = re.compile(route_expr)
             if expr.match(url):
                 return path
 
         return ""
 
-    def _converters(self, value, pathArg):
-        match = param_pattern.match(pathArg)
-        if match:
-            arg_type = match.groupdict()["type"]
-            if arg_type == "int:":
-                return int(value)
-            elif arg_type == "float:":
-                return float(value)
-            elif arg_type == "string:":
-                return value
-            elif arg_type == "uuid:":
-                return value
-            else:
-                return value
-        else:
-            return value
-
     def _get_matching_args(self, route, url):
-        url_expr = re.compile(self._url_convert(route))
+        url_expr = re.compile(_url_convert(route))
 
         route_args = [i.group() for i in params_expr.finditer(route)]
         url_args = url_expr.match(url).groups()
@@ -175,7 +304,7 @@ class API(object):
         names = [param_pattern.match(arg).groupdict()["name"] for arg in route_args]
 
         args = [
-            self._converters(u, route_args[id])
+            _converters(u, route_args[id])
             for id, u in enumerate(url_args)
             if u != route_args[id]
         ]
@@ -196,9 +325,9 @@ class API(object):
     def route(self, path, **kwargs):
         """Register route."""
 
-        def _register_view(view_func):
-            self._add_route(path, view_func, **kwargs)
-            return view_func
+        def _register_view(endpoint):
+            self._add_route(path, endpoint, **kwargs)
+            return endpoint
 
         return _register_view
 
@@ -357,15 +486,13 @@ class API(object):
         # remove access_token from kwargs
         request_params.pop("access_token", False)
 
-        function_kwargs = self._get_matching_args(
-            route_entry.uri_pattern, resource_path
-        )
+        function_kwargs = self._get_matching_args(route_entry.path, resource_path)
         function_kwargs.update(request_params.copy())
         if http_method == "POST":
             function_kwargs.update(dict(body=event.get("body")))
 
         try:
-            response = route_entry.view_function(**function_kwargs)
+            response = route_entry.endpoint(**function_kwargs)
         except Exception as err:
             self.log.error(str(err))
             response = (

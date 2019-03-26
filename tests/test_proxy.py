@@ -15,9 +15,8 @@ funct = Mock(__name__="Mock")
 
 def test_RouteEntry_default():
     """Should work as expected."""
-    route = RouteEntry(funct, "my-function", "/endpoint/test/<id>")
-    assert route.view_function == funct
-    assert route.view_name == "my-function"
+    route = RouteEntry(funct, "/endpoint/test/<id>")
+    assert route.endpoint == funct
     assert route.methods == ["GET"]
     assert not route.cors
     assert not route.token
@@ -29,7 +28,6 @@ def test_RouteEntry_Options():
     """Should work as expected."""
     route = RouteEntry(
         funct,
-        "my-function",
         "/endpoint/test/<id>",
         ["POST"],
         cors=True,
@@ -37,8 +35,7 @@ def test_RouteEntry_Options():
         payload_compression_method="deflate",
         binary_b64encode=True,
     )
-    assert route.view_function == funct
-    assert route.view_name == "my-function"
+    assert route.endpoint == funct
     assert route.methods == ["POST"]
     assert route.cors
     assert route.token == "Yo"
