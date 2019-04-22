@@ -32,6 +32,7 @@ class RouteEntry(object):
         token="",
         payload_compression_method="",
         binary_b64encode=False,
+        ttl=None,
     ):
         """Initialize route object."""
         self.view_function = view_function
@@ -42,6 +43,7 @@ class RouteEntry(object):
         self.token = token
         self.compression = payload_compression_method
         self.b64encode = binary_b64encode
+        self.ttl = ttl
         if self.compression and self.compression not in ["gzip", "zlib", "deflate"]:
             raise ValueError(
                 f"'{payload_compression_method}' is not a supported compression"
@@ -103,6 +105,7 @@ class API(object):
         token = kwargs.pop("token", "")
         payload_compression = kwargs.pop("payload_compression_method", "")
         binary_encode = kwargs.pop("binary_b64encode", False)
+        ttl = kwargs.pop("ttl", None)
 
         if kwargs:
             raise TypeError(
@@ -125,6 +128,7 @@ class API(object):
             token,
             payload_compression,
             binary_encode,
+            ttl,
         )
 
     def _url_convert(self, path):
@@ -228,6 +232,7 @@ class API(object):
         accepted_compression="",
         compression="",
         b64encode=False,
+        ttl=None,
     ):
         """Return HTTP response.
 
@@ -294,6 +299,9 @@ class API(object):
                         {"errorMessage": f"Unsupported compression mode: {compression}"}
                     ),
                 )
+
+        if ttl:
+            messageData["headers"]["Cache-Control"] = f"max-age={ttl}"
 
         if (
             content_type in binary_types or not isinstance(response_body, str)
@@ -383,4 +391,5 @@ class API(object):
             accepted_compression=headers.get("accept-encoding", ""),
             compression=route_entry.compression,
             b64encode=route_entry.b64encode,
+            ttl=route_entry.ttl,
         )
