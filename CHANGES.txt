@@ -1,6 +1,10 @@
 Changes
 =======
 
+3.0.1 (2019-04-24)
+	- add TLL (max-age) in response header (#11)
+	- add more binary media type
+
 3.0.0 (2019-03-05)
 - fix regular expression
 

@@ -251,12 +251,15 @@ class API(object):
 
         binary_types = [
             "application/octet-stream",
+            "application/x-protobuf",
             "application/x-tar",
             "application/zip",
             "image/png",
             "image/jpeg",
+            "image/jpg",
             "image/tiff",
             "image/webp",
+            "image/jp2",
         ]
 
         messageData = {

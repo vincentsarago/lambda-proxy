@@ -70,6 +70,19 @@ When working with binary on API-Gateway we must return a base64 encoded string
           with open(f"{filename}.jpg", "rb") as f:
               return ('OK', 'image/jpeg', f.read())
 
+
+Enable compression (happens only if "Accept-Encoding" if found in headers)
+
+.. code-block:: python
+
+  >>> from lambda_proxy.proxy import API
+  >>> APP = API(app_name="app")
+
+  >>> @APP.route('/test/tests/<filename>.jpg', methods=['GET'], cors=True, binary_b64encode=True, payload_compression_method="gzip")
+  >>> def print_id(filename):
+          with open(f"{filename}.jpg", "rb") as f:
+              return ('OK', 'image/jpeg', f.read())
+
 Cache Control
 ----------------
 
@@ -83,19 +96,6 @@ Add a Cache Control header with a Time to Live (TTL) in seconds.
   >>> @APP.route('/test/tests/<id>', methods=['GET'], cors=True, ttl=3600)
   >>> def print_id(id):
           return ('OK', 'plain/text', id)
-
-
-Enable compression (happens only if "Accept-Encoding" if found in headers)
-
-.. code-block:: python
-
-  >>> from lambda_proxy.proxy import API
-  >>> APP = API(app_name="app")
-
-  >>> @APP.route('/test/tests/<filename>.jpg', methods=['GET'], cors=True, binary_b64encode=True, payload_compression_method="gzip")
-  >>> def print_id(filename):
-          with open(f"{filename}.jpg", "rb") as f:
-              return ('OK', 'image/jpeg', f.read())
 
 Simple Auth token
 -----------------
