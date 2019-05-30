@@ -1,6 +1,14 @@
 Changes
 =======
 
+4.0.0 (TBD)
+- add OpenAPI documentation methods
+- add default documentation routes ("/openapi.json", "/docs", "/redoc")
+
+**breacking change**
+- replace `app_name` by `name`
+- python 3 support only
+
 3.0.0 (2019-03-05)
 - fix regular expression
 
