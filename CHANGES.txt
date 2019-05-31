@@ -4,6 +4,8 @@ Changes
 4.0.0 (TBD)
 - add OpenAPI documentation methods
 - add default documentation routes ("/openapi.json", "/docs", "/redoc")
+- add tag and description in route
+- better regex
 
 **breacking change**
 - replace `app_name` by `name`
