@@ -1,7 +1,6 @@
 Changes
 =======
 
-<<<<<<< HEAD
 4.0.0 (TBD)
 - add OpenAPI documentation methods
 - add default documentation routes ("/openapi.json", "/docs", "/redoc")
@@ -11,11 +10,10 @@ Changes
 **breacking change**
 - replace `app_name` by `name`
 - python 3 support only
-=======
+
 3.0.1 (2019-04-24)
 	- add TLL (max-age) in response header (#11)
 	- add more binary media type
->>>>>>> 566dbeb24357085dd2963efb3d99c54b6714663e
 
 3.0.0 (2019-03-05)
 - fix regular expression
