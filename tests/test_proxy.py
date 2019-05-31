@@ -1,5 +1,8 @@
 """Test lambda-proxy."""
 
+from typing import Dict, Tuple
+
+import os
 import json
 import zlib
 import base64
@@ -9,11 +12,35 @@ from mock import Mock
 
 from lambda_proxy import proxy
 
+json_api = os.path.join(os.path.dirname(__file__), "fixtures", "openapi.json")
+with open(json_api, "r") as f:
+    openapi_content = json.loads(f.read())
 
 funct = Mock(__name__="Mock")
 
 
+def test_value_converters():
+    """Convert convert value to correct type."""
+    pathArg = "<string:v>"
+    assert "123" == proxy._converters("123", pathArg)
+
+    pathArg = "<int:v>"
+    assert 123 == proxy._converters("123", pathArg)
+
+    pathArg = "<float:v>"
+    assert 123. == proxy._converters("123", pathArg)
+
+    pathArg = "<uuid:v>"
+    assert "f5c21e12-8317-11e9-bf96-2e2ca3acb545" == proxy._converters(
+        "f5c21e12-8317-11e9-bf96-2e2ca3acb545", pathArg
+    )
+
+    pathArg = "<v>"
+    assert "123" == proxy._converters("123", pathArg)
+
+
 def test_path_converters():
+    """Convert proxy path to openapi path."""
     path = "/<string:num>/<test>"
     assert "/{num}/{test}" == proxy._path_converters(path)
 
@@ -864,6 +891,107 @@ def test_API_multipleRoute():
     assert body["user"] == "remotepixel"
     assert body["num"] == 1
     assert body["params"] == "1"
+
+    # Clear logger handlers
+    for h in app.log.handlers:
+        app.log.removeHandler(h)
+
+
+def test_API_doc():
+    """Should work as expected."""
+    app = proxy.API(name="test")
+
+    @app.route("/test", methods=["POST"])
+    def _post(body: str) -> Tuple[str, str, str]:
+        """Return something."""
+        return ("OK", "text/plain", "Yo")
+
+    @app.route("/<user>", methods=["GET"], tag=["users"], description="a route")
+    def _user(user: str) -> Tuple[str, str, str]:
+        """Return something."""
+        return ("OK", "text/plain", "Yo")
+
+    @app.route("/<int:num>", methods=["GET"], token=True)
+    def _num(num: int) -> Tuple[str, str, str]:
+        """Return something."""
+        return ("OK", "text/plain", "yo")
+
+    @app.route("/<user>/<int:num>", methods=["GET"])
+    def _userandnum(user: str, num: int) -> Tuple[str, str, str]:
+        """Return something."""
+        return ("OK", "text/plain", "yo")
+
+    @app.route("/<user>/<float:num>", methods=["GET"])
+    def _options(
+        user: str,
+        num: float = 1.0,
+        opt1: str = "yep",
+        opt2: int = 2,
+        opt3: float = 2.0,
+        **kwargs,
+    ) -> Tuple[str, str, str]:
+        """Return something."""
+        return ("OK", "text/plain", "yo")
+
+    @app.route("/<user>/<num>", methods=["GET"])
+    @app.pass_context
+    @app.pass_event
+    def _ctx(evt: Dict, ctx: Dict, user: str, num: int) -> Tuple[str, str, str]:
+        """Return something."""
+        return ("OK", "text/plain", "yo")
+
+    event = {
+        "path": "/openapi.json",
+        "httpMethod": "GET",
+        "headers": {},
+        "queryStringParameters": {},
+    }
+    headers = {
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "GET",
+        "Access-Control-Allow-Origin": "*",
+        "Content-Type": "application/json",
+    }
+
+    res = app(event, {})
+    body = json.loads(res["body"])
+    assert res["statusCode"] == 200
+    assert res["headers"] == headers
+    assert openapi_content == body
+
+    event = {
+        "path": "/docs",
+        "httpMethod": "GET",
+        "headers": {},
+        "queryStringParameters": {},
+    }
+    headers = {
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "GET",
+        "Access-Control-Allow-Origin": "*",
+        "Content-Type": "text/html",
+    }
+
+    res = app(event, {})
+    assert res["statusCode"] == 200
+    assert res["headers"] == headers
+
+    event = {
+        "path": "/redoc",
+        "httpMethod": "GET",
+        "headers": {},
+        "queryStringParameters": {},
+    }
+    headers = {
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "GET",
+        "Access-Control-Allow-Origin": "*",
+        "Content-Type": "text/html",
+    }
+
+    res = app(event, {})
+    assert res["statusCode"] == 200
+    assert res["headers"] == headers
 
     # Clear logger handlers
     for h in app.log.handlers:

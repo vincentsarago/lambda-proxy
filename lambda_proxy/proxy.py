@@ -18,7 +18,7 @@ from functools import wraps
 from lambda_proxy import templates
 
 param_pattern = re.compile(
-    r"^<" r"(?P<type>[a-zA-Z0-9_]+\:)?" r"(?P<name>[a-zA-Z0-9_]+)" r">$"
+    r"^<" r"((?P<type>[a-zA-Z0-9_]+)\:)?" r"(?P<name>[a-zA-Z0-9_]+)" r">$"
 )
 
 params_expr = re.compile(r"<([a-zA-Z0-9_]+\:)?[a-zA-Z0-9_]+>")
@@ -43,13 +43,13 @@ def _converters(value: str, pathArg: str) -> Any:
     match = param_pattern.match(pathArg)
     if match:
         arg_type = match.groupdict()["type"]
-        if arg_type == "int:":
+        if arg_type == "int":
             return int(value)
-        elif arg_type == "float:":
+        elif arg_type == "float":
             return float(value)
-        elif arg_type == "string:":
+        elif arg_type == "string":
             return value
-        elif arg_type == "uuid:":
+        elif arg_type == "uuid":
             return value
         else:
             return value
@@ -75,7 +75,7 @@ class RouteEntry(object):
         payload_compression_method: str = "",
         binary_b64encode: bool = False,
         description: str = None,
-        tag: str = None,
+        tag: Tuple = None,
     ) -> None:
         """Initialize route object."""
         self.endpoint = endpoint
@@ -134,11 +134,11 @@ class API(object):
     def _get_parameters(self, route: RouteEntry) -> List[Dict]:
         argspath_schema = {
             "default": {"type": "string"},
-            "string:": {"type": "string"},
-            "str:": {"type": "string"},
-            "uuid:": {"type": "string", "format": "uuid"},
-            "int:": {"type": "integer"},
-            "float:": {"type": "number", "format": "float"},
+            "string": {"type": "string"},
+            "str": {"type": "string"},
+            "uuid": {"type": "string", "format": "uuid"},
+            "int": {"type": "integer"},
+            "float": {"type": "number", "format": "float"},
         }
 
         args_in_path = route._get_path_args()
@@ -193,10 +193,12 @@ class API(object):
         output = {"openapi": openapi_version, "info": info}
 
         security_schemes = {
-            "type": "apiKey",
-            "description": "Simple token authentification",
-            "in": "query",
-            "name": "access_token",
+            "access_token": {
+                "type": "apiKey",
+                "description": "Simple token authentification",
+                "in": "query",
+                "name": "access_token",
+            }
         }
 
         components: Dict[str, Dict] = {}
@@ -212,7 +214,7 @@ class API(object):
                 default_operation["description"] = route.description
             if route.token:
                 components.setdefault("securitySchemes", {}).update(security_schemes)
-                default_operation["security"] = {"access_token": []}
+                default_operation["security"] = [{"access_token": []}]
 
             parameters = self._get_parameters(route)
             if parameters:
@@ -278,6 +280,8 @@ class API(object):
         token = kwargs.pop("token", "")
         payload_compression = kwargs.pop("payload_compression_method", "")
         binary_encode = kwargs.pop("binary_b64encode", False)
+        description = kwargs.pop("description", None)
+        tag = kwargs.pop("tag", None)
 
         if kwargs:
             raise TypeError(
@@ -292,7 +296,15 @@ class API(object):
             )
 
         self.routes[path] = RouteEntry(
-            endpoint, path, methods, cors, token, payload_compression, binary_encode
+            endpoint,
+            path,
+            methods,
+            cors,
+            token,
+            payload_compression,
+            binary_encode,
+            description,
+            tag,
         )
 
     def _url_matching(self, url: str) -> str:
@@ -357,6 +369,38 @@ class API(object):
             return f(self.event, *args, **kwargs)
 
         return new_func
+
+    def setup_docs(self) -> None:
+        """Add default documentation routes."""
+        openapi_url = f"/openapi.json"
+
+        def _openapi() -> str:
+            """Return OpenAPI json."""
+            return ("OK", "application/json", json.dumps(self._get_openapi()))
+
+        self._add_route(openapi_url, _openapi, cors=True)
+
+        def _swagger_ui_html() -> str:
+            """Display Swagger HTML UI."""
+            return (
+                "OK",
+                "text/html",
+                templates.swagger(
+                    openapi_url=openapi_url, title=self.name + " - Swagger UI"
+                ),
+            )
+
+        self._add_route("/docs", _swagger_ui_html, cors=True)
+
+        def _redoc_ui_html() -> str:
+            """Display Redoc HTML UI."""
+            return (
+                "OK",
+                "text/html",
+                templates.redoc(openapi_url=openapi_url, title=self.name + " - ReDoc"),
+            )
+
+        self._add_route("/redoc", _redoc_ui_html, cors=True)
 
     def response(
         self,
@@ -522,43 +566,3 @@ class API(object):
             compression=route_entry.compression,
             b64encode=route_entry.b64encode,
         )
-
-    def setup_docs(self) -> None:
-        """Add default documentation routes."""
-        openapi_url = f"/openapi.json"
-
-        def _openapi() -> str:
-            """Return OpenAPI json."""
-            return ("OK", "application/json", json.dumps(self._get_openapi()))
-
-        self._add_route(openapi_url, _openapi)
-
-        def _swagger_ui_html() -> str:
-            """Display Swagger HTML UI."""
-            return (
-                "OK",
-                "text/html",
-                templates.swagger(
-                    openapi_url=openapi_url, title=self.name + " - Swagger UI"
-                ),
-            )
-
-            return templates.swagger(
-                openapi_url=openapi_url, title=self.name + " - Swagger UI"
-            )
-
-        self._add_route("/docs", _swagger_ui_html)
-
-        def _redoc_ui_html() -> str:
-            """Display Redoc HTML UI."""
-            return (
-                "OK",
-                "text/html",
-                templates.redoc(openapi_url=openapi_url, title=self.name + " - ReDoc"),
-            )
-
-            return templates.redoc(
-                openapi_url=openapi_url, title=self.name + " - Swagger UI"
-            )
-
-        self._add_route("/redoc", _redoc_ui_html)
