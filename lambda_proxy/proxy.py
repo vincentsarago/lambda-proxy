@@ -390,7 +390,7 @@ class API(object):
                 "OK",
                 "text/html",
                 templates.swagger(
-                    openapi_url=openapi_url, title=self.name + " - Swagger UI"
+                    openapi_url=f".{openapi_url}", title=self.name + " - Swagger UI"
                 ),
             )
 
@@ -401,7 +401,9 @@ class API(object):
             return (
                 "OK",
                 "text/html",
-                templates.redoc(openapi_url=openapi_url, title=self.name + " - ReDoc"),
+                templates.redoc(
+                    openapi_url=f".{openapi_url}", title=self.name + " - ReDoc"
+                ),
             )
 
         self._add_route("/redoc", _redoc_ui_html, cors=True, tag=["documentation"])
