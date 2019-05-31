@@ -382,7 +382,7 @@ class API(object):
             """Return OpenAPI json."""
             return ("OK", "application/json", json.dumps(self._get_openapi()))
 
-        self._add_route(openapi_url, _openapi, cors=True)
+        self._add_route(openapi_url, _openapi, cors=True, tag=["documentation"])
 
         def _swagger_ui_html() -> str:
             """Display Swagger HTML UI."""
@@ -394,7 +394,7 @@ class API(object):
                 ),
             )
 
-        self._add_route("/docs", _swagger_ui_html, cors=True)
+        self._add_route("/docs", _swagger_ui_html, cors=True, tag=["documentation"])
 
         def _redoc_ui_html() -> str:
             """Display Redoc HTML UI."""
@@ -404,7 +404,7 @@ class API(object):
                 templates.redoc(openapi_url=openapi_url, title=self.name + " - ReDoc"),
             )
 
-        self._add_route("/redoc", _redoc_ui_html, cors=True)
+        self._add_route("/redoc", _redoc_ui_html, cors=True, tag=["documentation"])
 
     def response(
         self,
