@@ -1,6 +1,6 @@
 # lambda-proxy
 
-[![Packaging status](https://badge.fury.io/py/lambda-proxy.svg)](https://badge.fury.io/py/rio-tiler-mosaic)
+[![Packaging status](https://badge.fury.io/py/lambda-proxy.svg)](https://badge.fury.io/py/lambda-proxy)
 [![CircleCI](https://circleci.com/gh/vincentsarago/lambda-proxy.svg?style=svg)](https://circleci.com/gh/vincentsarago/lambda-proxy)
 [![codecov](https://codecov.io/gh/vincentsarago/lambda-proxy/branch/master/graph/badge.svg)](https://codecov.io/gh/vincentsarago/lambda-proxy)
 
