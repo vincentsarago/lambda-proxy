@@ -50,6 +50,19 @@ def print_id(id, body):
 
 # Advanced options
 
+## Cache Control
+	
+Add a Cache Control header with a Time to Live (TTL) in seconds.
+
+```python
+from lambda_proxy.proxy import API
+APP = API(app_name="app")
+
+@APP.route('/test/tests/<id>', methods=['GET'], cors=True, ttl=3600)
+def print_id(id):
+   return ('OK', 'plain/text', id)
+```
+
 ## Binary responses
 
 When working with binary on API-Gateway we must return a base64 encoded string
@@ -191,8 +204,6 @@ def print_id(id: int, num: float = 0.2) -> Tuple(str, str, str):
 ```
 
 In the example above, our route `/test/<int:id>` define an input `id` to be a `INT`, while we also add this hint to the function `print_id` we also specify the type (and default) of the `num` option. 
-
-
 
 
 # Examples

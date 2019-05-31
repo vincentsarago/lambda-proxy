@@ -180,6 +180,38 @@ def test_proxy_API():
     funct.assert_called_with(user="remote", name="pixel")
 
 
+def test_ttl():
+    """Add and parse route."""
+    app = proxy.API(name="test")
+    funct = Mock(__name__="Mock", return_value=("OK", "text/plain", "heyyyy"))
+    app._add_route(
+        "/test/<string:user>/<name>", funct, methods=["GET"], cors=True, ttl=3600
+    )
+
+    event = {
+        "path": "/test/remote/pixel",
+        "httpMethod": "GET",
+        "headers": {},
+        "queryStringParameters": {},
+    }
+    resp = {
+        "body": "heyyyy",
+        "headers": {
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Origin": "*",
+            "Content-Type": "text/plain",
+            "Cache-Control": "max-age=3600",
+        },
+        "statusCode": 200,
+    }
+    res = app(event, {})
+    print("res ", res)
+    print("resp", resp)
+    assert res == resp
+    funct.assert_called_with(user="remote", name="pixel")
+
+
 def test_querystringNull():
     """Add and parse route."""
     app = proxy.API(name="test")

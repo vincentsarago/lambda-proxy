@@ -74,6 +74,7 @@ class RouteEntry(object):
         token: str = "",
         payload_compression_method: str = "",
         binary_b64encode: bool = False,
+        ttl=None,
         description: str = None,
         tag: Tuple = None,
     ) -> None:
@@ -86,6 +87,7 @@ class RouteEntry(object):
         self.token = token
         self.compression = payload_compression_method
         self.b64encode = binary_b64encode
+        self.ttl = ttl
         self.description = description or self.endpoint.__doc__
         self.tag = tag
         if self.compression and self.compression not in ["gzip", "zlib", "deflate"]:
@@ -280,6 +282,7 @@ class API(object):
         token = kwargs.pop("token", "")
         payload_compression = kwargs.pop("payload_compression_method", "")
         binary_encode = kwargs.pop("binary_b64encode", False)
+        ttl = kwargs.pop("ttl", None)
         description = kwargs.pop("description", None)
         tag = kwargs.pop("tag", None)
 
@@ -303,6 +306,7 @@ class API(object):
             token,
             payload_compression,
             binary_encode,
+            ttl,
             description,
             tag,
         )
@@ -412,6 +416,7 @@ class API(object):
         accepted_compression: str = "",
         compression: str = "",
         b64encode: bool = False,
+        ttl: int = None,
     ):
         """Return HTTP response.
 
@@ -430,12 +435,15 @@ class API(object):
 
         binary_types = [
             "application/octet-stream",
+            "application/x-protobuf",
             "application/x-tar",
             "application/zip",
             "image/png",
             "image/jpeg",
+            "image/jpg",
             "image/tiff",
             "image/webp",
+            "image/jp2",
         ]
 
         messageData = {
@@ -478,6 +486,9 @@ class API(object):
                         {"errorMessage": f"Unsupported compression mode: {compression}"}
                     ),
                 )
+
+        if ttl:
+            messageData["headers"]["Cache-Control"] = f"max-age={ttl}"
 
         if (
             content_type in binary_types or not isinstance(response_body, str)
@@ -565,4 +576,5 @@ class API(object):
             accepted_compression=headers.get("accept-encoding", ""),
             compression=route_entry.compression,
             b64encode=route_entry.b64encode,
+            ttl=route_entry.ttl,
         )
