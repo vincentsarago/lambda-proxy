@@ -36,7 +36,7 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
 @click.command(short_help="Local Server")
 @click.option("--port", type=int, default=8000, help="port")
 def run(port):
-    """Launch server"""
+    """Launch server."""
     server_address = ("", port)
     httpd = HTTPServer(server_address, HTTPRequestHandler)
     click.echo(f"Starting local server at http://127.0.0.1:{port}", err=True)

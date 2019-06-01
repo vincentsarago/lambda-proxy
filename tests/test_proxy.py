@@ -1,5 +1,8 @@
 """Test lambda-proxy."""
 
+from typing import Dict, Tuple
+
+import os
 import json
 import zlib
 import base64
@@ -7,17 +10,50 @@ import base64
 import pytest
 from mock import Mock
 
-from lambda_proxy.proxy import RouteEntry, API
+from lambda_proxy import proxy
+
+json_api = os.path.join(os.path.dirname(__file__), "fixtures", "openapi.json")
+with open(json_api, "r") as f:
+    openapi_content = json.loads(f.read())
+
+json_apigw = os.path.join(os.path.dirname(__file__), "fixtures", "openapi_apigw.json")
+with open(json_apigw, "r") as f:
+    openapi_apigw_content = json.loads(f.read())
 
 
 funct = Mock(__name__="Mock")
 
 
+def test_value_converters():
+    """Convert convert value to correct type."""
+    pathArg = "<string:v>"
+    assert "123" == proxy._converters("123", pathArg)
+
+    pathArg = "<int:v>"
+    assert 123 == proxy._converters("123", pathArg)
+
+    pathArg = "<float:v>"
+    assert 123. == proxy._converters("123", pathArg)
+
+    pathArg = "<uuid:v>"
+    assert "f5c21e12-8317-11e9-bf96-2e2ca3acb545" == proxy._converters(
+        "f5c21e12-8317-11e9-bf96-2e2ca3acb545", pathArg
+    )
+
+    pathArg = "<v>"
+    assert "123" == proxy._converters("123", pathArg)
+
+
+def test_path_converters():
+    """Convert proxy path to openapi path."""
+    path = "/<string:num>/<test>"
+    assert "/{num}/{test}" == proxy._path_converters(path)
+
+
 def test_RouteEntry_default():
     """Should work as expected."""
-    route = RouteEntry(funct, "my-function", "/endpoint/test/<id>")
-    assert route.view_function == funct
-    assert route.view_name == "my-function"
+    route = proxy.RouteEntry(funct, "/endpoint/test/<id>")
+    assert route.endpoint == funct
     assert route.methods == ["GET"]
     assert not route.cors
     assert not route.token
@@ -27,9 +63,8 @@ def test_RouteEntry_default():
 
 def test_RouteEntry_Options():
     """Should work as expected."""
-    route = RouteEntry(
+    route = proxy.RouteEntry(
         funct,
-        "my-function",
         "/endpoint/test/<id>",
         ["POST"],
         cors=True,
@@ -37,8 +72,7 @@ def test_RouteEntry_Options():
         payload_compression_method="deflate",
         binary_b64encode=True,
     )
-    assert route.view_function == funct
-    assert route.view_name == "my-function"
+    assert route.endpoint == funct
     assert route.methods == ["POST"]
     assert route.cors
     assert route.token == "Yo"
@@ -49,7 +83,7 @@ def test_RouteEntry_Options():
 def test_RouteEntry_invalidCompression():
     """Should work as expected."""
     with pytest.raises(ValueError):
-        RouteEntry(
+        proxy.RouteEntry(
             funct,
             "my-function",
             "/endpoint/test/<id>",
@@ -59,9 +93,22 @@ def test_RouteEntry_invalidCompression():
 
 def test_API_init():
     """Should work as expected."""
-    app = API(app_name="test")
-    assert app.app_name == "test"
-    assert not app.routes
+    app = proxy.API(name="test")
+    assert app.name == "test"
+    assert len(list(app.routes.keys())) == 3
+    assert not app.debug
+    assert app.log.getEffectiveLevel() == 40  # ERROR
+
+    # Clear logger handlers
+    for h in app.log.handlers:
+        app.log.removeHandler(h)
+
+
+def test_API_noDocs():
+    """Do not set default documentation routes."""
+    app = proxy.API(name="test", add_docs=False)
+    assert app.name == "test"
+    assert len(list(app.routes.keys())) == 0
     assert not app.debug
     assert app.log.getEffectiveLevel() == 40  # ERROR
 
@@ -72,9 +119,8 @@ def test_API_init():
 
 def test_API_noLog():
     """Should work as expected."""
-    app = API(app_name="test", configure_logs=False)
-    assert app.app_name == "test"
-    assert not app.routes
+    app = proxy.API(name="test", configure_logs=False)
+    assert app.name == "test"
     assert not app.debug
     assert app.log
 
@@ -85,7 +131,7 @@ def test_API_noLog():
 
 def test_API_logDebug():
     """Should work as expected."""
-    app = API(app_name="test", debug=True)
+    app = proxy.API(name="test", debug=True)
     assert app.log.getEffectiveLevel() == 10  # DEBUG
 
     # Clear logger handlers
@@ -95,8 +141,8 @@ def test_API_logDebug():
 
 def test_API_addRoute():
     """Add and parse route."""
-    app = API(app_name="test")
-    assert not app.routes
+    app = proxy.API(name="test")
+    assert len(list(app.routes.keys())) == 3
 
     app._add_route("/endpoint/test/<id>", funct, methods=["GET"], cors=True, token="yo")
     assert app.routes
@@ -112,9 +158,9 @@ def test_API_addRoute():
         app.log.removeHandler(h)
 
 
-def test_API():
+def test_proxy_API():
     """Add and parse route."""
-    app = API(app_name="test")
+    app = proxy.API(name="test")
     funct = Mock(__name__="Mock", return_value=("OK", "text/plain", "heyyyy"))
     app._add_route("/test/<string:user>/<name>", funct, methods=["GET"], cors=True)
 
@@ -141,7 +187,7 @@ def test_API():
 
 def test_ttl():
     """Add and parse route."""
-    app = API(app_name="test")
+    app = proxy.API(name="test")
     funct = Mock(__name__="Mock", return_value=("OK", "text/plain", "heyyyy"))
     app._add_route(
         "/test/<string:user>/<name>", funct, methods=["GET"], cors=True, ttl=3600
@@ -165,15 +211,13 @@ def test_ttl():
         "statusCode": 200,
     }
     res = app(event, {})
-    print("res ", res)
-    print("resp", resp)
     assert res == resp
     funct.assert_called_with(user="remote", name="pixel")
 
 
 def test_querystringNull():
     """Add and parse route."""
-    app = API(app_name="test")
+    app = proxy.API(name="test")
     funct = Mock(__name__="Mock", return_value=("OK", "text/plain", "heyyyy"))
     app._add_route("/test/<user>", funct, methods=["GET"], cors=True)
 
@@ -200,7 +244,7 @@ def test_querystringNull():
 
 def test_headersNull():
     """Add and parse route."""
-    app = API(app_name="test")
+    app = proxy.API(name="test")
     funct = Mock(__name__="Mock", return_value=("OK", "text/plain", "heyyyy"))
     app._add_route("/test/<user>", funct, methods=["GET"], cors=True)
 
@@ -227,7 +271,7 @@ def test_headersNull():
 
 def test_API_encoding():
     """Test b64 encoding."""
-    app = API(app_name="test")
+    app = proxy.API(name="test")
 
     body = b"thisisafakeencodedjpeg"
     b64body = base64.b64encode(body).decode()
@@ -289,7 +333,7 @@ def test_API_compression():
     gzbody = gzip_compress.compress(body) + gzip_compress.flush()
     b64gzipbody = base64.b64encode(gzbody).decode()
 
-    app = API(app_name="test")
+    app = proxy.API(name="test")
     funct = Mock(__name__="Mock", return_value=("OK", "image/jpeg", body))
     app._add_route(
         "/test_compress/<user>.jpg",
@@ -439,7 +483,7 @@ def test_API_otherCompression():
     zlibbody = zlib_compress.compress(body) + zlib_compress.flush()
     deflbody = deflate_compress.compress(body) + deflate_compress.flush()
 
-    app = API(app_name="test")
+    app = proxy.API(name="test")
     funct = Mock(__name__="Mock", return_value=("OK", "image/jpeg", body))
     app._add_route(
         "/test_deflate/<user>.jpg",
@@ -501,7 +545,7 @@ def test_API_otherCompression():
 
 def test_API_routeURL():
     """Should catch invalid route and parse valid args."""
-    app = API(app_name="test")
+    app = proxy.API(name="test")
     funct = Mock(__name__="Mock", return_value=("OK", "text/plain", "heyyyy"))
     app._add_route("/test/<user>", funct, methods=["GET"], cors=True)
 
@@ -618,7 +662,7 @@ def test_API_routeToken(monkeypatch):
     """Validate tokens."""
     monkeypatch.setenv("TOKEN", "yo")
 
-    app = API(app_name="test")
+    app = proxy.API(name="test")
     funct = Mock(__name__="Mock", return_value=("OK", "text/plain", "heyyyy"))
     app._add_route("/test/<user>", funct, methods=["GET"], cors=True, token=True)
 
@@ -713,7 +757,7 @@ def test_API_routeToken(monkeypatch):
 
 def test_API_functionError():
     """Add and parse route."""
-    app = API(app_name="test")
+    app = proxy.API(name="test")
     funct = Mock(__name__="Mock", side_effect=Exception("hey something went wrong"))
     app._add_route("/test/<user>", funct, methods=["GET"], cors=True)
 
@@ -743,7 +787,7 @@ def test_API_functionError():
 
 def test_API_Post():
     """SHould work as expected on POST request."""
-    app = API(app_name="test")
+    app = proxy.API(name="test")
     funct = Mock(__name__="Mock", return_value=("OK", "text/plain", "heyyyy"))
     app._add_route("/test/<user>", funct, methods=["GET", "POST"], cors=True)
 
@@ -795,7 +839,7 @@ def test_API_Post():
 
 def test_API_ctx():
     """Should work as expected and pass ctx and evt to the function."""
-    app = API(app_name="test")
+    app = proxy.API(name="test")
 
     @app.route("/<id>", methods=["GET"], cors=True)
     @app.pass_event
@@ -836,7 +880,7 @@ def test_API_ctx():
 
 def test_API_multipleRoute():
     """Should work as expected."""
-    app = API(app_name="test")
+    app = proxy.API(name="test")
 
     @app.route("/<user>", methods=["GET"], cors=True)
     @app.route("/<user>@<int:num>", methods=["GET"], cors=True)
@@ -882,6 +926,193 @@ def test_API_multipleRoute():
     assert body["user"] == "remotepixel"
     assert body["num"] == 1
     assert body["params"] == "1"
+
+    # Clear logger handlers
+    for h in app.log.handlers:
+        app.log.removeHandler(h)
+
+
+def test_API_doc():
+    """Should work as expected."""
+    app = proxy.API(name="test")
+
+    @app.route("/test", methods=["POST"])
+    def _post(body: str) -> Tuple[str, str, str]:
+        """Return something."""
+        return ("OK", "text/plain", "Yo")
+
+    @app.route("/<user>", methods=["GET"], tag=["users"], description="a route")
+    def _user(user: str) -> Tuple[str, str, str]:
+        """Return something."""
+        return ("OK", "text/plain", "Yo")
+
+    @app.route("/<int:num>", methods=["GET"], token=True)
+    def _num(num: int) -> Tuple[str, str, str]:
+        """Return something."""
+        return ("OK", "text/plain", "yo")
+
+    @app.route("/<user>/<int:num>", methods=["GET"])
+    def _userandnum(user: str, num: int) -> Tuple[str, str, str]:
+        """Return something."""
+        return ("OK", "text/plain", "yo")
+
+    @app.route("/<user>/<float:num>", methods=["GET"])
+    def _options(
+        user: str,
+        num: float = 1.0,
+        opt1: str = "yep",
+        opt2: int = 2,
+        opt3: float = 2.0,
+        **kwargs,
+    ) -> Tuple[str, str, str]:
+        """Return something."""
+        return ("OK", "text/plain", "yo")
+
+    @app.route("/<user>/<num>", methods=["GET"])
+    @app.pass_context
+    @app.pass_event
+    def _ctx(evt: Dict, ctx: Dict, user: str, num: int) -> Tuple[str, str, str]:
+        """Return something."""
+        return ("OK", "text/plain", "yo")
+
+    event = {
+        "path": "/openapi.json",
+        "httpMethod": "GET",
+        "headers": {},
+        "queryStringParameters": {},
+    }
+    headers = {
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "GET",
+        "Access-Control-Allow-Origin": "*",
+        "Content-Type": "application/json",
+    }
+
+    res = app(event, {})
+    body = json.loads(res["body"])
+    assert res["statusCode"] == 200
+    assert res["headers"] == headers
+    assert openapi_content == body
+
+    event = {
+        "path": "/docs",
+        "httpMethod": "GET",
+        "headers": {},
+        "queryStringParameters": {},
+    }
+    headers = {
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "GET",
+        "Access-Control-Allow-Origin": "*",
+        "Content-Type": "text/html",
+    }
+
+    res = app(event, {})
+    assert res["statusCode"] == 200
+    assert res["headers"] == headers
+
+    event = {
+        "path": "/redoc",
+        "httpMethod": "GET",
+        "headers": {},
+        "queryStringParameters": {},
+    }
+    headers = {
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "GET",
+        "Access-Control-Allow-Origin": "*",
+        "Content-Type": "text/html",
+    }
+
+    res = app(event, {})
+    assert res["statusCode"] == 200
+    assert res["headers"] == headers
+
+    # Clear logger handlers
+    for h in app.log.handlers:
+        app.log.removeHandler(h)
+
+
+def test_API_doc_apigw():
+    """Should work as expected if request from api-gateway."""
+    app = proxy.API(name="test")
+
+    @app.route("/test", methods=["POST"])
+    def _post(body: str) -> Tuple[str, str, str]:
+        """Return something."""
+        return ("OK", "text/plain", "Yo")
+
+    @app.route("/<user>", methods=["GET"], tag=["users"], description="a route")
+    def _user(user: str) -> Tuple[str, str, str]:
+        """Return something."""
+        return ("OK", "text/plain", "Yo")
+
+    @app.route("/<int:num>", methods=["GET"], token=True)
+    def _num(num: int) -> Tuple[str, str, str]:
+        """Return something."""
+        return ("OK", "text/plain", "yo")
+
+    @app.route("/<user>/<int:num>", methods=["GET"])
+    def _userandnum(user: str, num: int) -> Tuple[str, str, str]:
+        """Return something."""
+        return ("OK", "text/plain", "yo")
+
+    @app.route("/<user>/<float:num>", methods=["GET"])
+    def _options(
+        user: str,
+        num: float = 1.0,
+        opt1: str = "yep",
+        opt2: int = 2,
+        opt3: float = 2.0,
+        **kwargs,
+    ) -> Tuple[str, str, str]:
+        """Return something."""
+        return ("OK", "text/plain", "yo")
+
+    @app.route("/<user>/<num>", methods=["GET"])
+    @app.pass_context
+    @app.pass_event
+    def _ctx(evt: Dict, ctx: Dict, user: str, num: int) -> Tuple[str, str, str]:
+        """Return something."""
+        return ("OK", "text/plain", "yo")
+
+    event = {
+        "path": "/openapi.json",
+        "httpMethod": "GET",
+        "headers": {"Host": "afakeapi.execute-api.us-east-1.amazonaws.com"},
+        "requestContext": {"stage": "production"},
+        "queryStringParameters": {},
+    }
+    headers = {
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "GET",
+        "Access-Control-Allow-Origin": "*",
+        "Content-Type": "application/json",
+    }
+
+    res = app(event, {})
+    body = json.loads(res["body"])
+    assert res["statusCode"] == 200
+    assert res["headers"] == headers
+    assert openapi_apigw_content == body
+
+    event = {
+        "path": "/docs",
+        "httpMethod": "GET",
+        "headers": {"Host": "afakeapi.execute-api.us-east-1.amazonaws.com"},
+        "requestContext": {"stage": "production"},
+        "queryStringParameters": {},
+    }
+    headers = {
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "GET",
+        "Access-Control-Allow-Origin": "*",
+        "Content-Type": "text/html",
+    }
+
+    res = app(event, {})
+    assert res["statusCode"] == 200
+    assert res["headers"] == headers
 
     # Clear logger handlers
     for h in app.log.handlers:

@@ -11,7 +11,7 @@ with open("lambda_proxy/__init__.py") as f:
             break
 
 
-with open("README.rst") as f:
+with open("README.md") as f:
     readme = f.read()
 
 
@@ -26,6 +26,7 @@ setup(
     version=version,
     description=u"Simple AWS Lambda proxy to handle API Gateway request",
     long_description=readme,
+    long_description_content_type="text/markdown",
     python_requires=">=3",
     classifiers=[
         "Intended Audience :: Information Technology",
