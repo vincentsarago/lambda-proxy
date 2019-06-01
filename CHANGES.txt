@@ -1,7 +1,7 @@
 Changes
 =======
 
-4.0.0 (TBD)
+4.0.0 (2019-06-01)
 - add OpenAPI documentation methods
 - add default documentation routes ("/openapi.json", "/docs", "/redoc")
 - add tag and description in route

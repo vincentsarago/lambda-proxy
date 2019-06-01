@@ -22,7 +22,7 @@ extra_reqs = {"test": ["pytest", "pytest-cov", "mock"]}
 
 
 setup(
-    name="lambda_proxy",
+    name="lambda-proxy",
     version=version,
     description=u"Simple AWS Lambda proxy to handle API Gateway request",
     long_description=readme,
