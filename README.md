@@ -4,7 +4,9 @@
 [![CircleCI](https://circleci.com/gh/vincentsarago/lambda-proxy.svg?style=svg)](https://circleci.com/gh/vincentsarago/lambda-proxy)
 [![codecov](https://codecov.io/gh/vincentsarago/lambda-proxy/branch/master/graph/badge.svg)](https://codecov.io/gh/vincentsarago/lambda-proxy)
 
-A simple proxy that can work on AWS Lambda as API-gateway `{proxy+}`.
+A zero-requirement proxy linking AWS API Gateway `{proxy+}` requests and AWS Lambda.
+
+<img width="600" alt="Capture d’écran, le 2019-05-31 à 22 56 35" src="https://user-images.githubusercontent.com/10407788/58742966-6ff50480-83f7-11e9-81f7-3ba7aa2310bb.png">
 
 ## Install
 
@@ -48,7 +50,33 @@ def print_id(id, body):
     return ('OK', 'plain/text', id)
 ```
 
-# Advanced options
+# Routes 
+
+Route schema is simmilar to the one used in [Flask](http://flask.pocoo.org/docs/1.0/api/#url-route-registrations)
+
+> Variable parts in the route can be specified with angular brackets `/user/<username>`. By default a variable part in the URL accepts any string without a slash however a different converter can be specified as well by using `<converter:name>`.
+
+Converters:
+- `int`: integer
+- `string`: string
+- `float`: float number
+- `uuid`: UUID
+
+example: 
+- `/app/<user>/<id>` (`user` and `id` are variables)
+- `/app/<string:value>/<float:num>` (`value` will be a string, while `num` will be a float)
+
+# Route Options 
+
+- **path**: the URL rule as string
+- **methods**: list of HTTP methods allowed, default: ["GET"]
+- **cors**: allow CORS, default: `False`
+- **token**: set `access_token` validation 
+- **payload_compression_method**: Enable and select an output body compression
+- **binary_b64encode**: base64 encode the output body (API Gateway)
+- **ttl**: Cache Control setting (Time to Live)
+- **description**: route description (for documentation)
+- **tag**: list of tags (for documentation)
 
 ## Cache Control
 	
@@ -136,7 +164,6 @@ $ curl /000001?name=vincent
 
 ## Multiple Routes
 
-
 ```python
 from lambda_proxy.proxy import API
 APP = API(name="app")
@@ -159,6 +186,8 @@ $ curl /000001?name=vincent
 $ curl /000001/1?name=vincent
    0001-vincent-1
 ```
+
+# Advanced features
 
 ## Context and Event passing
 
@@ -205,7 +234,6 @@ def print_id(id: int, num: float = 0.2) -> Tuple(str, str, str):
 
 In the example above, our route `/test/<int:id>` define an input `id` to be a `INT`, while we also add this hint to the function `print_id` we also specify the type (and default) of the `num` option. 
 
-
 # Examples
 
 -  https://github.com/vincentsarago/lambda-proxy/tree/master/example
@@ -224,17 +252,15 @@ $ cd lambda-proxy
 $ pip install -e .[dev]
 ```
 
-This repo is set to use pre-commit to run *flake8*, *pydocstring* and
-   *black* ("uncompromising Python code formatter") when committing new
-   code.
+This repo is set to use pre-commit to run *flake8*, *pydocstring* and *black* ("uncompromising Python code formatter") when committing new code.
 
 ```bash
 $ pre-commit install
 $ git add .
 $ git commit -m'my change'
-    black....................................................................Passed
-    Flake8...................................................................Passed
-    Verifying PEP257 Compliance..............................................Passed
+   black.........................Passed
+   Flake8........................Passed
+   Verifying PEP257 Compliance...Passed
 $ git push origin
 ```
 

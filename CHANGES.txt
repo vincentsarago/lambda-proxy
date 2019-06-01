@@ -5,8 +5,9 @@ Changes
 - add OpenAPI documentation methods
 - add default documentation routes ("/openapi.json", "/docs", "/redoc")
 - add tag and description in route
-- better regex
 - add default tags for documentation routes
+- better regex
+- add code annotations 
 
 **breacking change**
 - replace `app_name` by `name`

@@ -16,6 +16,11 @@ json_api = os.path.join(os.path.dirname(__file__), "fixtures", "openapi.json")
 with open(json_api, "r") as f:
     openapi_content = json.loads(f.read())
 
+json_apigw = os.path.join(os.path.dirname(__file__), "fixtures", "openapi_apigw.json")
+with open(json_apigw, "r") as f:
+    openapi_apigw_content = json.loads(f.read())
+
+
 funct = Mock(__name__="Mock")
 
 
@@ -206,8 +211,6 @@ def test_ttl():
         "statusCode": 200,
     }
     res = app(event, {})
-    print("res ", res)
-    print("resp", resp)
     assert res == resp
     funct.assert_called_with(user="remote", name="pixel")
 
@@ -1012,6 +1015,92 @@ def test_API_doc():
         "path": "/redoc",
         "httpMethod": "GET",
         "headers": {},
+        "queryStringParameters": {},
+    }
+    headers = {
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "GET",
+        "Access-Control-Allow-Origin": "*",
+        "Content-Type": "text/html",
+    }
+
+    res = app(event, {})
+    assert res["statusCode"] == 200
+    assert res["headers"] == headers
+
+    # Clear logger handlers
+    for h in app.log.handlers:
+        app.log.removeHandler(h)
+
+
+def test_API_doc_apigw():
+    """Should work as expected if request from api-gateway."""
+    app = proxy.API(name="test")
+
+    @app.route("/test", methods=["POST"])
+    def _post(body: str) -> Tuple[str, str, str]:
+        """Return something."""
+        return ("OK", "text/plain", "Yo")
+
+    @app.route("/<user>", methods=["GET"], tag=["users"], description="a route")
+    def _user(user: str) -> Tuple[str, str, str]:
+        """Return something."""
+        return ("OK", "text/plain", "Yo")
+
+    @app.route("/<int:num>", methods=["GET"], token=True)
+    def _num(num: int) -> Tuple[str, str, str]:
+        """Return something."""
+        return ("OK", "text/plain", "yo")
+
+    @app.route("/<user>/<int:num>", methods=["GET"])
+    def _userandnum(user: str, num: int) -> Tuple[str, str, str]:
+        """Return something."""
+        return ("OK", "text/plain", "yo")
+
+    @app.route("/<user>/<float:num>", methods=["GET"])
+    def _options(
+        user: str,
+        num: float = 1.0,
+        opt1: str = "yep",
+        opt2: int = 2,
+        opt3: float = 2.0,
+        **kwargs,
+    ) -> Tuple[str, str, str]:
+        """Return something."""
+        return ("OK", "text/plain", "yo")
+
+    @app.route("/<user>/<num>", methods=["GET"])
+    @app.pass_context
+    @app.pass_event
+    def _ctx(evt: Dict, ctx: Dict, user: str, num: int) -> Tuple[str, str, str]:
+        """Return something."""
+        return ("OK", "text/plain", "yo")
+
+    event = {
+        "path": "/openapi.json",
+        "httpMethod": "GET",
+        "headers": {"Host": "afakeapi.execute-api.us-east-1.amazonaws.com"},
+        "requestContext": {"stage": "production"},
+        "queryStringParameters": {},
+    }
+    headers = {
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "GET",
+        "Access-Control-Allow-Origin": "*",
+        "Content-Type": "application/json",
+    }
+
+    res = app(event, {})
+    body = json.loads(res["body"])
+    assert res["statusCode"] == 200
+    assert res["headers"] == headers
+    assert openapi_apigw_content == body
+
+    event = {
+        "path": "/docs",
+        "httpMethod": "GET",
+        "headers": {"Host": "afakeapi.execute-api.us-east-1.amazonaws.com"},
+        "requestContext": {"stage": "production"},
         "queryStringParameters": {},
     }
     headers = {

@@ -71,7 +71,7 @@ class RouteEntry(object):
         path: str,
         methods: List = ["GET"],
         cors: bool = False,
-        token: str = "",
+        token: bool = False,
         payload_compression_method: str = "",
         binary_b64encode: bool = False,
         ttl=None,
@@ -187,7 +187,9 @@ class API(object):
             parameters.append(parameter)
         return parameters
 
-    def _get_openapi(self, openapi_version: str = "3.0.2") -> Dict:
+    def _get_openapi(
+        self, openapi_version: str = "3.0.2", openapi_prefix: str = ""
+    ) -> Dict:
         """Get OpenAPI documentation."""
         info = {"title": self.name, "version": self.version}
         if self.description:
@@ -240,7 +242,7 @@ class API(object):
 
                 path[method.lower()] = operation
 
-            paths.setdefault(route.openapi_path, {}).update(path)
+            paths.setdefault(openapi_prefix + route.openapi_path, {}).update(path)
 
         if components:
             output["components"] = components
@@ -374,35 +376,58 @@ class API(object):
 
         return new_func
 
+    def _get_openapi_prefix(self) -> str:
+        """Return API Gateway stage name."""
+        # Check for API gateway stage
+        header = self.event.get("headers", {})
+        host = header.get("X-Forwarded-Host", header.get("Host", ""))
+        if ".execute-api." in host and ".amazonaws.com" in host:
+            stage = self.event["requestContext"].get("stage", "")
+            if stage:
+                stage = f"/{stage}"
+        else:
+            stage = ""
+
+        return stage
+
     def setup_docs(self) -> None:
         """Add default documentation routes."""
         openapi_url = f"/openapi.json"
 
-        def _openapi() -> str:
+        def _openapi() -> Tuple[str, str, str]:
             """Return OpenAPI json."""
-            return ("OK", "application/json", json.dumps(self._get_openapi()))
+            openapi_prefix = self._get_openapi_prefix()
+            return (
+                "OK",
+                "application/json",
+                json.dumps(self._get_openapi(openapi_prefix=openapi_prefix)),
+            )
 
         self._add_route(openapi_url, _openapi, cors=True, tag=["documentation"])
 
-        def _swagger_ui_html() -> str:
+        def _swagger_ui_html() -> Tuple[str, str, str]:
             """Display Swagger HTML UI."""
+            openapi_prefix = self._get_openapi_prefix()
             return (
                 "OK",
                 "text/html",
                 templates.swagger(
-                    openapi_url=f".{openapi_url}", title=self.name + " - Swagger UI"
+                    openapi_url=f"{openapi_prefix}{openapi_url}",
+                    title=self.name + " - Swagger UI",
                 ),
             )
 
         self._add_route("/docs", _swagger_ui_html, cors=True, tag=["documentation"])
 
-        def _redoc_ui_html() -> str:
+        def _redoc_ui_html() -> Tuple[str, str, str]:
             """Display Redoc HTML UI."""
+            openapi_prefix = self._get_openapi_prefix()
             return (
                 "OK",
                 "text/html",
                 templates.redoc(
-                    openapi_url=f".{openapi_url}", title=self.name + " - ReDoc"
+                    openapi_url=f"{openapi_prefix}{openapi_url}",
+                    title=self.name + " - ReDoc",
                 ),
             )
 
