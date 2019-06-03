@@ -49,13 +49,13 @@ def main(user, num=0):
 ```
 
 ```
-$ curl -i http://127.0.0.1:8000/jqtdre
+$ curl -i http://127.0.0.1:8000/jqtrde
 
-    jqtdre-0%
+    jqtrde-0%
 
-$ curl -i http://127.0.0.1:8000/jqtdre@2
+$ curl -i http://127.0.0.1:8000/jqtrde@2
 
-    jqtdre-2%
+    jqtrde-2%
 ```
 
 #### json
