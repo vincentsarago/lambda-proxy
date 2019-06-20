@@ -33,7 +33,7 @@ def test_value_converters():
     assert 123 == proxy._converters("123", pathArg)
 
     pathArg = "<float:v>"
-    assert 123. == proxy._converters("123", pathArg)
+    assert 123.0 == proxy._converters("123", pathArg)
 
     pathArg = "<uuid:v>"
     assert "f5c21e12-8317-11e9-bf96-2e2ca3acb545" == proxy._converters(
@@ -44,10 +44,19 @@ def test_value_converters():
     assert "123" == proxy._converters("123", pathArg)
 
 
-def test_path_converters():
+def test_path_to_regex_convert():
+    """Convert route path to regex."""
+    path = "/jqtrde/<a>/<string:path>/<int:num>/<float:fl>/<uuid:id>/<regex([A-Z0-9]{5}):var>/<regex([a-z]{1}):othervar>"
+    assert (
+        "^/jqtrde/([a-zA-Z0-9_]+)/([a-zA-Z0-9_]+)/([0-9]+)/([+-]?[0-9]+.[0-9]+)/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/([A-Z0-9]{5})/([a-z]{1})$"
+        == proxy._path_to_regex(path)
+    )
+
+
+def test_path_to_openapi_converters():
     """Convert proxy path to openapi path."""
-    path = "/<string:num>/<test>"
-    assert "/{num}/{test}" == proxy._path_converters(path)
+    path = "/<string:num>/<test>-<regex([0-1]{4}):var>"
+    assert "/{num}/{test}-{var}" == proxy._path_to_openapi(path)
 
 
 def test_RouteEntry_default():
@@ -1113,6 +1122,65 @@ def test_API_doc_apigw():
     res = app(event, {})
     assert res["statusCode"] == 200
     assert res["headers"] == headers
+
+    # Clear logger handlers
+    for h in app.log.handlers:
+        app.log.removeHandler(h)
+
+
+def test_routeRegex():
+    """Add and parse route."""
+    app = proxy.API(name="test")
+    funct_one = Mock(__name__="Mock", return_value=("OK", "text/plain", "heyyyy"))
+    funct_two = Mock(__name__="Mock", return_value=("OK", "text/plain", "yooooo"))
+    app._add_route(
+        "/test/<regex([0-9]{4}):number>/<regex([a-z]{3}):name>",
+        funct_two,
+        methods=["GET"],
+        cors=True,
+    )
+    app._add_route(
+        "/test/<regex([0-9]{4}):number>/<name>", funct_one, methods=["GET"], cors=True
+    )
+    event = {
+        "path": "/test/1234/pixel",
+        "httpMethod": "GET",
+        "headers": {},
+        "queryStringParameters": {},
+    }
+    resp = {
+        "body": "heyyyy",
+        "headers": {
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Origin": "*",
+            "Content-Type": "text/plain",
+        },
+        "statusCode": 200,
+    }
+    res = app(event, {})
+    assert res == resp
+    funct_one.assert_called_with(number="1234", name="pixel")
+
+    event = {
+        "path": "/test/1234/pix",
+        "httpMethod": "GET",
+        "headers": {},
+        "queryStringParameters": {},
+    }
+    resp = {
+        "body": "yooooo",
+        "headers": {
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Origin": "*",
+            "Content-Type": "text/plain",
+        },
+        "statusCode": 200,
+    }
+    res = app(event, {})
+    assert res == resp
+    funct_two.assert_called_with(number="1234", name="pix")
 
     # Clear logger handlers
     for h in app.log.handlers:

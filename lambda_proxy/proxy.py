@@ -17,15 +17,17 @@ from functools import wraps
 
 from lambda_proxy import templates
 
+params_expr = re.compile(r"(<[^>]*>)")
 param_pattern = re.compile(
-    r"^<" r"((?P<type>[a-zA-Z0-9_]+)\:)?" r"(?P<name>[a-zA-Z0-9_]+)" r">$"
+    r"^<((?P<type>[a-zA-Z0-9_]+)(\((?P<pattern>.+)\))?\:)?(?P<name>[a-zA-Z0-9_]+)>$"
+)
+regex_pattern = re.compile(
+    r"^<(?P<type>regex)\((?P<pattern>.+)\):(?P<name>[a-zA-Z0-9_]+)>$"
 )
 
-params_expr = re.compile(r"<([a-zA-Z0-9_]+\:)?[a-zA-Z0-9_]+>")
 
-
-def _url_convert(path: str) -> str:
-    path = "^{}$".format(path)  # full match
+def _path_to_regex(path: str) -> str:
+    path = f"^{path}$"  # full match
     path = re.sub(r"<[a-zA-Z0-9_]+>", r"([a-zA-Z0-9_]+)", path)
     path = re.sub(r"<string\:[a-zA-Z0-9_]+>", r"([a-zA-Z0-9_]+)", path)
     path = re.sub(r"<int\:[a-zA-Z0-9_]+>", r"([0-9]+)", path)
@@ -35,8 +37,22 @@ def _url_convert(path: str) -> str:
         "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})",
         path,
     )
+    for regexParam in re.findall(r"(<regex[^>]*>)", path):
+        matches = regex_pattern.search(regexParam)
+        expr = matches.groupdict()["pattern"]
+        path = path.replace(regexParam, f"({expr})")
 
     return path
+
+
+def _path_to_openapi(path: str) -> str:
+    for regexParam in re.findall(r"(<regex[^>]*>)", path):
+        match = regex_pattern.search(regexParam).groupdict()
+        name = match["name"]
+        path = path.replace(regexParam, f"<regex:{name}>")
+
+    path = re.sub(r"<([a-zA-Z0-9_]+\:)?", "{", path)
+    return re.sub(r">", "}", path)
 
 
 def _converters(value: str, pathArg: str) -> Any:
@@ -55,11 +71,6 @@ def _converters(value: str, pathArg: str) -> Any:
             return value
     else:
         return value
-
-
-def _path_converters(path: str) -> str:
-    path = re.sub(r"<([a-zA-Z0-9_]+\:)?", "{", path)
-    return re.sub(r">", "}", path)
 
 
 class RouteEntry(object):
@@ -81,7 +92,8 @@ class RouteEntry(object):
         """Initialize route object."""
         self.endpoint = endpoint
         self.path = path
-        self.openapi_path = _path_converters(self.path)
+        self.route_regex = _path_to_regex(path)
+        self.openapi_path = _path_to_openapi(self.path)
         self.methods = methods
         self.cors = cors
         self.token = token
@@ -138,6 +150,7 @@ class API(object):
             "default": {"type": "string"},
             "string": {"type": "string"},
             "str": {"type": "string"},
+            "regex": {"type": "string", "pattern": ""},
             "uuid": {"type": "string", "format": "uuid"},
             "int": {"type": "integer"},
             "float": {"type": "number", "format": "float"},
@@ -152,18 +165,16 @@ class API(object):
             annotation = endpoint_args[arg["name"]]
             endpoint_args_names.remove(arg["name"])
 
-            if arg["type"] is not None:
-                schema = argspath_schema[arg["type"]]
-            else:
-                schema = argspath_schema["default"]
-
             parameter = {
                 "name": arg["name"],
                 "in": "path",
-                "schema": {"type": schema["type"]},
+                "schema": {"type": "string"},
             }
-            if schema.get("format"):
-                parameter["schema"]["format"] = schema.get("format")
+
+            if arg["type"] is not None:
+                parameter["schema"] = argspath_schema[arg["type"]]
+                if arg["type"] == "regex":
+                    parameter["schema"]["pattern"] = f"^{arg['pattern']}$"
 
             if annotation.default is not inspect.Parameter.empty:
                 parameter["schema"]["default"] = annotation.default
@@ -314,19 +325,17 @@ class API(object):
         )
 
     def _url_matching(self, url: str) -> str:
-        for path, function in self.routes.items():
-            route_expr = _url_convert(path)
-            expr = re.compile(route_expr)
+        for path, route in self.routes.items():
+            expr = re.compile(route.route_regex)
             if expr.match(url):
                 return path
 
         return ""
 
-    def _get_matching_args(self, route: str, url: str) -> Dict:
-        url_expr = re.compile(_url_convert(route))
-
-        route_args = [i.group() for i in params_expr.finditer(route)]
-        url_args = url_expr.match(url).groups()
+    def _get_matching_args(self, route: RouteEntry, url: str) -> Dict:
+        route_expr = re.compile(route.route_regex)
+        route_args = [i.group() for i in params_expr.finditer(route.path)]
+        url_args = route_expr.match(url).groups()
 
         names = [param_pattern.match(arg).groupdict()["name"] for arg in route_args]
 
@@ -557,6 +566,7 @@ class API(object):
             )
 
         route_entry = self.routes[self._url_matching(resource_path)]
+
         request_params = event.get("queryStringParameters", {}) or {}
         if route_entry.token:
             if not self._validate_token(request_params.get("access_token")):
@@ -579,7 +589,7 @@ class API(object):
         # remove access_token from kwargs
         request_params.pop("access_token", False)
 
-        function_kwargs = self._get_matching_args(route_entry.path, resource_path)
+        function_kwargs = self._get_matching_args(route_entry, resource_path)
         function_kwargs.update(request_params.copy())
         if http_method == "POST":
             function_kwargs.update(dict(body=event.get("body")))
