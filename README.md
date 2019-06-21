@@ -66,6 +66,35 @@ example:
 - `/app/<user>/<id>` (`user` and `id` are variables)
 - `/app/<string:value>/<float:num>` (`value` will be a string, while `num` will be a float)
 
+## Regex
+You can also add regex parameters descriptions using special converter `regex()`
+
+example: 
+```python
+@APP.route("/app/<regex([a-z]+):regularuser>", methods=['GET'])
+def print_user(regularuser):
+    return ('OK', 'plain/text', f"regular {regularuser}")
+
+@APP.route("/app/<regex([A-Z]+):capitaluser>", methods=['GET'])
+def print_user(capitaluser):
+    return ('OK', 'plain/text', f"CAPITAL {capitaluser}")
+```
+
+#### Warning
+
+when using **regex()** you must use different variable names or the route might not show up in the documentation.
+
+```python
+@APP.route("/app/<regex([a-z]+):user>", methods=['GET'])
+def print_user(user):
+    return ('OK', 'plain/text', f"regular {user}")
+
+@APP.route("/app/<regex([A-Z]+):user>", methods=['GET'])
+def print_user(user):
+    return ('OK', 'plain/text', f"CAPITAL {user}")
+```
+This app will work but the documentation will only show the second route because in `openapi.json`, route names will be `/app/{user}` for both routes.
+
 # Route Options 
 
 - **path**: the URL rule as string
@@ -106,15 +135,23 @@ def print_id(filename):
         return ('OK', 'image/jpeg', f.read())
 
 ```
-Enable compression (happens only if "Accept-Encoding" if found in
-headers)
+
+## Compression
+
+Enable compression if "Accept-Encoding" if found in headers.
 
 ```python
 from lambda_proxy.proxy import API
 
 APP = API(name="app")
 
-@APP.route('/test/tests/<filename>.jpg', methods=['GET'], cors=True, binary_b64encode=True, payload_compression_method="gzip")
+@APP.route(
+   '/test/tests/<filename>.jpg',
+   methods=['GET'],
+   cors=True,
+   binary_b64encode=True,
+   payload_compression_method="gzip"
+)
 def print_id(filename):
     with open(f"{filename}.jpg", "rb") as f:
        return ('OK', 'image/jpeg', f.read())
