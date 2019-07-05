@@ -271,6 +271,13 @@ def print_id(id: int, num: float = 0.2) -> Tuple(str, str, str):
 
 In the example above, our route `/test/<int:id>` define an input `id` to be a `INT`, while we also add this hint to the function `print_id` we also specify the type (and default) of the `num` option. 
 
+# Plugin
+
+- Add cache layer: https://github.com/vincentsarago/lambda-proxy-cache
+
+
+
+
 # Examples
 
 -  https://github.com/vincentsarago/lambda-proxy/tree/master/example
