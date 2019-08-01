@@ -389,7 +389,7 @@ class API(object):
 
     def _get_mapping_path(self) -> str:
         """Get custom mapping path."""
-        resource_proxy = proxy_pattern.match(self.resource)
+        resource_proxy = proxy_pattern.search(self.resource)
         if resource_proxy:
             proxy_path = self.event["pathParameters"].get(resource_proxy["name"])
             proxy_path = f"/{proxy_path}"
@@ -561,7 +561,7 @@ class API(object):
         headers = event.get("headers", {}) or {}
         headers = dict((key.lower(), value) for key, value in headers.items())
 
-        resource_proxy = proxy_pattern.match(self.resource)
+        resource_proxy = proxy_pattern.search(self.resource)
         if resource_proxy:
             proxy_path = event["pathParameters"].get(resource_proxy["name"])
             resource_path = f"/{proxy_path}"

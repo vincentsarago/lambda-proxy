@@ -1,6 +1,9 @@
 Changes
 =======
 
+4.1.2 (2019-08-01)
+- Fix bad regex use (#18)
+
 4.1.1 (2019-08-01)
 - support path mapping in API Gateway custom domain (#16)
 
