@@ -18,6 +18,7 @@ from functools import wraps
 from lambda_proxy import templates
 
 params_expr = re.compile(r"(<[^>]*>)")
+proxy_pattern = re.compile(r"/{(?P<name>.+)\+}$")
 param_pattern = re.compile(
     r"^<((?P<type>[a-zA-Z0-9_]+)(\((?P<pattern>.+)\))?\:)?(?P<name>[a-zA-Z0-9_]+)>$"
 )
@@ -138,6 +139,7 @@ class API(object):
         self.routes: Dict = {}
         self.context: Dict = {}
         self.event: Dict = {}
+        self.resource: str = "/"
         self.debug: bool = debug
         self.log = logging.getLogger(self.name)
         if configure_logs:
@@ -385,6 +387,17 @@ class API(object):
 
         return new_func
 
+    def _get_mapping_path(self) -> str:
+        """Get custom mapping path."""
+        resource_proxy = proxy_pattern.match(self.resource)
+        if resource_proxy:
+            proxy_path = self.event["pathParameters"].get(resource_proxy["name"])
+            proxy_path = f"/{proxy_path}"
+            path = self.event.get("path", "")
+            return path.replace(proxy_path, "")
+        else:
+            return ""
+
     def _get_openapi_prefix(self) -> str:
         """Return API Gateway stage name."""
         # Check for API gateway stage
@@ -393,11 +406,12 @@ class API(object):
         if ".execute-api." in host and ".amazonaws.com" in host:
             stage = self.event["requestContext"].get("stage", "")
             if stage:
-                stage = f"/{stage}"
+                prefix = f"/{stage}"
         else:
-            stage = ""
+            # Check for Custom Domain path
+            prefix = self._get_mapping_path()
 
-        return stage
+        return prefix
 
     def setup_docs(self) -> None:
         """Add default documentation routes."""
@@ -538,17 +552,22 @@ class API(object):
 
     def __call__(self, event, context):
         """Initialize route and handlers."""
-        self.log.debug(json.dumps(event.get("headers", {})))
-        self.log.debug(json.dumps(event.get("queryStringParameters", {})))
-        self.log.debug(json.dumps(event.get("pathParameters", {})))
+        self.log.debug(json.dumps(event, default=str))
 
         self.event = event
         self.context = context
+        self.resource = event.get("resource", "/")
 
         headers = event.get("headers", {}) or {}
         headers = dict((key.lower(), value) for key, value in headers.items())
 
-        resource_path = event.get("path", None)
+        resource_proxy = proxy_pattern.match(self.resource)
+        if resource_proxy:
+            proxy_path = event["pathParameters"].get(resource_proxy["name"])
+            resource_path = f"/{proxy_path}"
+        else:
+            resource_path = event.get("path")
+
         if resource_path is None:
             return self.response(
                 "NOK",

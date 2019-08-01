@@ -271,11 +271,41 @@ def print_id(id: int, num: float = 0.2) -> Tuple(str, str, str):
 
 In the example above, our route `/test/<int:id>` define an input `id` to be a `INT`, while we also add this hint to the function `print_id` we also specify the type (and default) of the `num` option. 
 
+# Custom Domain and path mapping
+
+Since version 4.1.1, lambda-proxy support custom domain and path mapping (see https://github.com/vincentsarago/lambda-proxy/issues/16).
+
+Note: When using path mapping other than `root` (`/`), `/` route won't be available.
+
+```python
+from lambda_proxy.proxy import API
+
+api = API(name="api", debug=True)
+
+
+# This route won't work when using path mapping
+@api.route("/", methods=["GET"], cors=True)
+# This route will work only if the path mapping is set to /api
+@api.route("/api", methods=["GET"], cors=True)
+def index():
+    html = """<!DOCTYPE html>
+    <html>
+        <header><title>This is title</title></header>
+        <body>
+            Hello world
+        </body>
+    </html>"""
+    return ("OK", "text/html", html)
+
+
+@api.route("/yo", methods=["GET"], cors=True)
+def yo():
+    return ("OK", "text/plain", "YOOOOO")
+```
+
 # Plugin
 
 - Add cache layer: https://github.com/vincentsarago/lambda-proxy-cache
-
-
 
 
 # Examples
