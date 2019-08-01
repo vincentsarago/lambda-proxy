@@ -657,7 +657,7 @@ def test_API_routeURL():
         "queryStringParameters": {},
     }
     resp = {
-        "body": '{"errorMessage": "Missing route parameter"}',
+        "body": '{"errorMessage": "Missing or invalid path"}',
         "headers": {"Content-Type": "application/json"},
         "statusCode": 400,
     }
@@ -1346,3 +1346,80 @@ def test_routeRegex():
     # Clear logger handlers
     for h in app.log.handlers:
         app.log.removeHandler(h)
+
+
+def testApigwPath():
+    """test api call parsing."""
+    # resource "/", no apigwg, noproxy, no path mapping
+    event = {"path": "/test/1234/pix", "headers": {}}
+    p = proxy.ApigwPath(event)
+    assert p.path == "/test/1234/pix"
+    assert not p.apigw_stage
+    assert not p.api_prefix
+    assert not p.path_mapping
+    assert p.prefix == ""
+
+    event = {"resource": "/", "path": "/test/1234/pix", "headers": {}}
+    p = proxy.ApigwPath(event)
+    assert p.path == "/test/1234/pix"
+    assert not p.apigw_stage
+    assert not p.api_prefix
+    assert not p.path_mapping
+    assert p.prefix == ""
+
+    # resource "proxy+", no apigwg, no path mapping, no api prefix
+    event = {
+        "resource": "/{proxy+}",
+        "pathParameters": {"proxy": "test/1234/pix"},
+        "path": "/test/1234/pix",
+        "headers": {},
+    }
+    p = proxy.ApigwPath(event)
+    assert p.path == "/test/1234/pix"
+    assert not p.apigw_stage
+    assert not p.api_prefix
+    assert not p.path_mapping
+    assert p.prefix == ""
+
+    # resource "proxy+", no apigwg, no path mapping, api prefix (api)
+    event = {
+        "resource": "/api/{proxy+}",
+        "pathParameters": {"proxy": "test/1234/pix"},
+        "path": "/api/test/1234/pix",
+        "headers": {},
+    }
+    p = proxy.ApigwPath(event)
+    assert p.path == "/test/1234/pix"
+    assert not p.apigw_stage
+    assert p.api_prefix == "/api"
+    assert not p.path_mapping
+    assert p.prefix == "/api"
+
+    # resource "proxy+", no apigwg, path mapping (prefix), api prefix (api)
+    event = {
+        "resource": "/api/{proxy+}",
+        "pathParameters": {"proxy": "test/1234/pix"},
+        "path": "/prefix/api/test/1234/pix",
+        "headers": {},
+    }
+    p = proxy.ApigwPath(event)
+    assert p.path == "/test/1234/pix"
+    assert not p.apigw_stage
+    assert p.api_prefix == "/api"
+    assert p.path_mapping == "/prefix"
+    assert p.prefix == "/prefix/api"
+
+    # resource "proxy+", apigwg (production), api prefix (api)
+    event = {
+        "resource": "/api/{proxy+}",
+        "pathParameters": {"proxy": "test/1234/pix"},
+        "path": "/prefix/api/test/1234/pix",
+        "headers": {"host": "afakeapi.execute-api.us-east-1.amazonaws.com"},
+        "requestContext": {"stage": "production"},
+    }
+    p = proxy.ApigwPath(event)
+    assert p.path == "/test/1234/pix"
+    assert p.apigw_stage == "/production"
+    assert p.api_prefix == "/api"
+    assert not p.path_mapping
+    assert p.prefix == "/production/api"

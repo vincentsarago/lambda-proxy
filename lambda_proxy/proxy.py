@@ -118,6 +118,54 @@ class RouteEntry(object):
         return args
 
 
+def _get_apigw_stage(event: Dict) -> str:
+    """Return API Gateway stage name."""
+    header = event.get("headers", {})
+    host = header.get("x-forwarded-host", header.get("host", ""))
+    if ".execute-api." in host and ".amazonaws.com" in host:
+        stage = event["requestContext"].get("stage", "")
+        if stage:
+            stage = f"/{stage}"
+        return stage
+    return ""
+
+
+def _get_request_path(event: Dict) -> str:
+    """Return API call path."""
+    resource_proxy = proxy_pattern.search(event.get("resource", "/"))
+    if resource_proxy:
+        proxy_path = event["pathParameters"].get(resource_proxy["name"])
+        return f"/{proxy_path}"
+
+    return event.get("path")
+
+
+class ApigwPath(object):
+    """Parse path of API Call."""
+
+    def __init__(self, event: Dict):
+        """Initialize API Gateway Path Info object."""
+        self.apigw_stage = _get_apigw_stage(event)
+        self.path = _get_request_path(event)
+        self.api_prefix = proxy_pattern.sub("", event.get("resource", "")).rstrip("/")
+        if not self.apigw_stage and self.path:
+            path = event.get("path", "")
+            suffix = self.api_prefix + self.path
+            self.path_mapping = path.replace(suffix, "")
+        else:
+            self.path_mapping = ""
+
+    @property
+    def prefix(self):
+        """Return the API prefix."""
+        if self.apigw_stage:
+            return self.apigw_stage + self.api_prefix
+        elif self.path_mapping:
+            return self.path_mapping + self.api_prefix
+        else:
+            return self.api_prefix
+
+
 class API(object):
     """API."""
 
@@ -139,7 +187,7 @@ class API(object):
         self.routes: Dict = {}
         self.context: Dict = {}
         self.event: Dict = {}
-        self.resource: str = "/"
+        self.request_path: ApigwPath
         self.debug: bool = debug
         self.log = logging.getLogger(self.name)
         if configure_logs:
@@ -387,50 +435,23 @@ class API(object):
 
         return new_func
 
-    def _get_mapping_path(self) -> str:
-        """Get custom mapping path."""
-        resource_proxy = proxy_pattern.search(self.resource)
-        if resource_proxy:
-            proxy_path = self.event["pathParameters"].get(resource_proxy["name"])
-            proxy_path = f"/{proxy_path}"
-            path = self.event.get("path", "")
-            return path.replace(proxy_path, "")
-        else:
-            return ""
-
-    def _get_openapi_prefix(self) -> str:
-        """Return API Gateway stage name."""
-        # Check for API gateway stage
-        header = self.event.get("headers", {})
-        host = header.get("X-Forwarded-Host", header.get("Host", ""))
-        if ".execute-api." in host and ".amazonaws.com" in host:
-            stage = self.event["requestContext"].get("stage", "")
-            if stage:
-                prefix = f"/{stage}"
-        else:
-            # Check for Custom Domain path
-            prefix = self._get_mapping_path()
-
-        return prefix
-
     def setup_docs(self) -> None:
         """Add default documentation routes."""
         openapi_url = f"/openapi.json"
 
         def _openapi() -> Tuple[str, str, str]:
             """Return OpenAPI json."""
-            openapi_prefix = self._get_openapi_prefix()
             return (
                 "OK",
                 "application/json",
-                json.dumps(self._get_openapi(openapi_prefix=openapi_prefix)),
+                json.dumps(self._get_openapi(openapi_prefix=self.request_path.prefix)),
             )
 
         self._add_route(openapi_url, _openapi, cors=True, tag=["documentation"])
 
         def _swagger_ui_html() -> Tuple[str, str, str]:
             """Display Swagger HTML UI."""
-            openapi_prefix = self._get_openapi_prefix()
+            openapi_prefix = self.request_path.prefix
             return (
                 "OK",
                 "text/html",
@@ -444,7 +465,7 @@ class API(object):
 
         def _redoc_ui_html() -> Tuple[str, str, str]:
             """Display Redoc HTML UI."""
-            openapi_prefix = self._get_openapi_prefix()
+            openapi_prefix = self.request_path.prefix
             return (
                 "OK",
                 "text/html",
@@ -556,35 +577,36 @@ class API(object):
 
         self.event = event
         self.context = context
-        self.resource = event.get("resource", "/")
 
-        headers = event.get("headers", {}) or {}
-        headers = dict((key.lower(), value) for key, value in headers.items())
+        # HACK: For an unknown reason some keys can have lower or upper case.
+        # To make sure the app works well we cast all the keys to lowercase.
+        headers = self.event.get("headers", {}) or {}
+        self.event["headers"] = dict(
+            (key.lower(), value) for key, value in headers.items()
+        )
 
-        resource_proxy = proxy_pattern.search(self.resource)
-        if resource_proxy:
-            proxy_path = event["pathParameters"].get(resource_proxy["name"])
-            resource_path = f"/{proxy_path}"
-        else:
-            resource_path = event.get("path")
-
-        if resource_path is None:
+        self.request_path = ApigwPath(self.event)
+        if self.request_path.path is None:
             return self.response(
                 "NOK",
                 "application/json",
-                json.dumps({"errorMessage": "Missing route parameter"}),
+                json.dumps({"errorMessage": "Missing or invalid path"}),
             )
 
-        if not self._url_matching(resource_path):
+        if not self._url_matching(self.request_path.path):
             return self.response(
                 "NOK",
                 "application/json",
                 json.dumps(
-                    {"errorMessage": "No view function for: {}".format(resource_path)}
+                    {
+                        "errorMessage": "No view function for: {}".format(
+                            self.request_path.path
+                        )
+                    }
                 ),
             )
 
-        route_entry = self.routes[self._url_matching(resource_path)]
+        route_entry = self.routes[self._url_matching(self.request_path.path)]
 
         request_params = event.get("queryStringParameters", {}) or {}
         if route_entry.token:
@@ -608,7 +630,7 @@ class API(object):
         # remove access_token from kwargs
         request_params.pop("access_token", False)
 
-        function_kwargs = self._get_matching_args(route_entry, resource_path)
+        function_kwargs = self._get_matching_args(route_entry, self.request_path.path)
         function_kwargs.update(request_params.copy())
         if http_method == "POST":
             function_kwargs.update(dict(body=event.get("body")))
@@ -629,7 +651,7 @@ class API(object):
             response[2],
             cors=route_entry.cors,
             accepted_methods=route_entry.methods,
-            accepted_compression=headers.get("accept-encoding", ""),
+            accepted_compression=self.event["headers"].get("accept-encoding", ""),
             compression=route_entry.compression,
             b64encode=route_entry.b64encode,
             ttl=route_entry.ttl,
