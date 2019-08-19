@@ -179,6 +179,7 @@ class API(object):
         add_docs: bool = True,
         configure_logs: bool = True,
         debug: bool = False,
+        https: bool = True,
     ) -> None:
         """Initialize API object."""
         self.name: str = name
@@ -189,11 +190,26 @@ class API(object):
         self.event: Dict = {}
         self.request_path: ApigwPath
         self.debug: bool = debug
+        self.https: bool = https
         self.log = logging.getLogger(self.name)
         if configure_logs:
             self._configure_logging()
         if add_docs:
             self.setup_docs()
+
+    @property
+    def host(self) -> str:
+        """Construct api gateway endpoint url."""
+        host = self.event["headers"].get(
+            "x-forwarded-host", self.event["headers"].get("host", "")
+        )
+        path_info = self.request_path
+        if path_info.apigw_stage:
+            host_suffix = path_info.apigw_stage
+        else:
+            host_suffix = path_info.path_mapping
+        scheme = "https" if self.https else "http"
+        return f"{scheme}://{host}{host_suffix}"
 
     def _get_parameters(self, route: RouteEntry) -> List[Dict]:
         argspath_schema = {

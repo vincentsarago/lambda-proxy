@@ -1423,3 +1423,80 @@ def testApigwPath():
     assert p.api_prefix == "/api"
     assert not p.path_mapping
     assert p.prefix == "/production/api"
+
+
+def testApigwHostUrl():
+    """Test url property."""
+    app = proxy.API(name="test")
+    funct = Mock(__name__="Mock", return_value=("OK", "text/plain", "heyyyy"))
+    app._add_route("/test/<string:user>/<name>", funct, methods=["GET"], cors=True)
+
+    # resource "/", no apigwg, noproxy, no path mapping
+    event = {
+        "path": "/test/1234/pix",
+        "headers": {"Host": "test.apigw.com"},
+        "httpMethod": "GET",
+    }
+    _ = app(event, {})
+    assert app.host == "https://test.apigw.com"
+
+    event = {
+        "resource": "/",
+        "path": "/test/1234/pix",
+        "headers": {"Host": "test.apigw.com"},
+        "httpMethod": "GET",
+    }
+    _ = app(event, {})
+    assert app.host == "https://test.apigw.com"
+
+    # resource "proxy+", apigwg (production), api prefix (api)
+    event = {
+        "resource": "/api/{proxy+}",
+        "pathParameters": {"proxy": "test/1234/pix"},
+        "path": "/api/test/1234/pix",
+        "headers": {
+            "X-Forwarded-Host": "abcdefghij.execute-api.eu-central-1.amazonaws.com"
+        },
+        "requestContext": {"stage": "production"},
+        "httpMethod": "GET",
+    }
+    _ = app(event, {})
+    assert (
+        app.host
+        == "https://abcdefghij.execute-api.eu-central-1.amazonaws.com/production"
+    )
+
+    # resource "proxy+", no apigwg, no path mapping, no api prefix
+    event = {
+        "resource": "/{proxy+}",
+        "pathParameters": {"proxy": "test/1234/pix"},
+        "path": "/test/1234/pix",
+        "headers": {"Host": "test.apigw.com"},
+        "httpMethod": "GET",
+    }
+    _ = app(event, {})
+    assert app.host == "https://test.apigw.com"
+
+    # resource "proxy+", no apigwg, path mapping (prefix), api prefix (api)
+    event = {
+        "resource": "/api/{proxy+}",
+        "pathParameters": {"proxy": "test/1234/pix"},
+        "path": "/prefix/api/test/1234/pix",
+        "headers": {"Host": "test.apigw.com"},
+        "httpMethod": "GET",
+    }
+
+    _ = app(event, {})
+    assert app.host == "https://test.apigw.com/prefix"
+
+    # Local
+    app.https = False
+    event = {
+        "resource": "/",
+        "path": "/api/test/1234/pix",
+        "headers": {"Host": "127.0.0.0:8000"},
+        "httpMethod": "GET",
+    }
+
+    _ = app(event, {})
+    assert app.host == "http://127.0.0.0:8000"
