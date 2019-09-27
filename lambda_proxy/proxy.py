@@ -575,7 +575,9 @@ class API(object):
                 )
 
         if ttl:
-            messageData["headers"]["Cache-Control"] = f"max-age={ttl}"
+            messageData["headers"]["Cache-Control"] = (
+                f"max-age={ttl}" if status == "OK" else "no-cache"
+            )
 
         if (
             content_type in binary_types or not isinstance(response_body, str)
@@ -648,8 +650,11 @@ class API(object):
 
         function_kwargs = self._get_matching_args(route_entry, self.request_path.path)
         function_kwargs.update(request_params.copy())
-        if http_method == "POST":
-            function_kwargs.update(dict(body=event.get("body")))
+        if http_method == "POST" and event.get("body"):
+            body = event["body"]
+            if event.get("isBase64Encoded", "") == "true":
+                body = base64.b64decode(body).decode()
+            function_kwargs.update(dict(body=body))
 
         try:
             response = route_entry.endpoint(**function_kwargs)

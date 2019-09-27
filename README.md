@@ -50,6 +50,32 @@ def print_id(id, body):
     return ('OK', 'plain/text', id)
 ```
 
+## Binary body
+
+Starting from version 5.0.0, lambda-proxy will decode base64 encoded body on POST message.
+
+Pre 5.0.0
+```python
+from lambda_proxy.proxy import API
+
+APP = API(name="app")
+
+@APP.route('/test', methods=['POST']e)
+def print_id(body):
+    body = json.loads(base64.b64decode(body).decode())
+```
+
+Post 5.0.0
+```python
+from lambda_proxy.proxy import API
+
+APP = API(name="app")
+
+@APP.route('/test', methods=['POST']e)
+def print_id(body):
+    body = json.loads(body)
+```
+
 # Routes 
 
 Route schema is simmilar to the one used in [Flask](http://flask.pocoo.org/docs/1.0/api/#url-route-registrations)
@@ -120,6 +146,8 @@ def print_id(id):
    return ('OK', 'plain/text', id)
 ```
 
+Note: If function returns other then "OK", Cache-Control will be set to `no-cache`
+
 ## Binary responses
 
 When working with binary on API-Gateway we must return a base64 encoded string
@@ -133,7 +161,6 @@ APP = API(name="app")
 def print_id(filename):
     with open(f"{filename}.jpg", "rb") as f:
         return ('OK', 'image/jpeg', f.read())
-
 ```
 
 ## Compression

@@ -4,8 +4,6 @@ common: &common
   working_directory: ~/lambda-proxy
   steps:
     - checkout
-    - run: sudo pip install virtualenv
-    - run: virtualenv venv
     - run:
         name: install dependencies
         command: pip install tox codecov pre-commit --user
@@ -48,13 +46,13 @@ jobs:
         - image: circleci/python:3.7.2
           environment:
             - TOXENV=release
-      working_directory: ~/lambda-prox
+      working_directory: ~/lambda-proxy
       steps:
         - checkout
         - run:
             name: verify git tag vs. version
             command: |
-              VERSION=$(python -c 'import lambda_proxy; print(lambda_proxy.__version__)')
+              VERSION=$(python setup.py --version)
               if [ "$VERSION" = "$CIRCLE_TAG" ]; then exit 0; else exit 3; fi
         - run:
             name: install dependencies

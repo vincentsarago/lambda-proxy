@@ -2,15 +2,6 @@
 
 from setuptools import setup, find_packages
 
-with open("lambda_proxy/__init__.py") as f:
-    for line in f:
-        if line.find("__version__") >= 0:
-            version = line.split("=")[1].strip()
-            version = version.strip('"')
-            version = version.strip("'")
-            break
-
-
 with open("README.md") as f:
     readme = f.read()
 
@@ -23,7 +14,7 @@ extra_reqs = {"test": ["pytest", "pytest-cov", "mock"]}
 
 setup(
     name="lambda-proxy",
-    version=version,
+    version="5.0.0",
     description=u"Simple AWS Lambda proxy to handle API Gateway request",
     long_description=readme,
     long_description_content_type="text/markdown",

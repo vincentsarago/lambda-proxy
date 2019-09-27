@@ -1,6 +1,11 @@
 Changes
 =======
 
+5.0.0 (2019-09-27)
+**breacking changes**
+- decode base64 encoded body on POST requests
+- add Cache-Control (ttl) only on for 200 responses
+
 4.1.4 (2019-08-19)
 - add `host` property to retrieve api host URL.
 

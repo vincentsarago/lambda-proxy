@@ -1,3 +1,5 @@
 """lambda-proxy: A simple AWS Lambda proxy to handle API Gateway request."""
 
-__version__ = "4.1.4"
+import pkg_resources
+
+version = pkg_resources.get_distribution(__package__).version
