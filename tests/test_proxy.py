@@ -1381,6 +1381,28 @@ def test_routeRegex():
         app.log.removeHandler(h)
 
 
+def test_routeRegexFailing():
+    """Add and parse route."""
+    app = proxy.API(name="test")
+    funct = Mock(__name__="Mock", return_value=("OK", "text/plain", "yooooo"))
+    app._add_route(
+        r"/test/<regex(user(\d+)?):user>/<sport>", funct, methods=["GET"], cors=True
+    )
+    event = {
+        "path": "/test/user1234/rugby",
+        "httpMethod": "GET",
+        "headers": {},
+        "queryStringParameters": {},
+    }
+    with pytest.raises(Exception):
+        app(event, {})
+        funct.assert_not_called()
+
+    # Clear logger handlers
+    for h in app.log.handlers:
+        app.log.removeHandler(h)
+
+
 def testApigwPath():
     """test api call parsing."""
     # resource "/", no apigwg, noproxy, no path mapping
