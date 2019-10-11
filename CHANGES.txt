@@ -1,6 +1,9 @@
 Changes
 =======
 
+5.0.1 (2019-10-11)
+- fix bad encoding in README.md (#23)
+
 5.0.0 (2019-09-27)
 **breacking changes**
 - decode base64 encoded body on POST requests

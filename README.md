@@ -6,7 +6,7 @@
 
 A zero-requirement proxy linking AWS API Gateway `{proxy+}` requests and AWS Lambda.
 
-<img width="600" alt="Capture d’écran, le 2019-05-31 à 22 56 35" src="https://user-images.githubusercontent.com/10407788/58742966-6ff50480-83f7-11e9-81f7-3ba7aa2310bb.png">
+<img width="600" alt="" src="https://user-images.githubusercontent.com/10407788/58742966-6ff50480-83f7-11e9-81f7-3ba7aa2310bb.png">
 
 ## Install
 
@@ -376,4 +376,3 @@ See [AUTHORS.txt](/AUTHORS.txt>).
 ### Changes
 
 See [CHANGES.txt](/CHANGES.txt>).
-
