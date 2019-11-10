@@ -377,6 +377,9 @@ class API(object):
                 "URL paths must be unique.".format(path)
             )
 
+        if "OPTIONS" not in methods:
+            methods.append("OPTIONS")
+
         self.routes[path] = RouteEntry(
             endpoint,
             path,
@@ -533,10 +536,9 @@ class API(object):
             "image/jp2",
         ]
 
-        messageData = {
-            "statusCode": statusCode[status],
-            "headers": {"Content-Type": content_type},
-        }
+        messageData = {"statusCode": statusCode[status], "headers": {}}
+        if content_type is not None:
+            messageData["headers"].update({"Content-Type": content_type})
 
         if cors:
             messageData["headers"]["Access-Control-Allow-Origin"] = "*"
@@ -545,7 +547,11 @@ class API(object):
             )
             messageData["headers"]["Access-Control-Allow-Credentials"] = "true"
 
-        if compression and compression in accepted_compression:
+        if (
+            compression
+            and compression in accepted_compression
+            and response_body is not None
+        ):
             messageData["headers"]["Content-Encoding"] = compression
             if isinstance(response_body, str):
                 response_body = bytes(response_body, "utf-8")
@@ -576,7 +582,7 @@ class API(object):
 
         if ttl:
             messageData["headers"]["Cache-Control"] = (
-                f"max-age={ttl}" if status == "OK" else "no-cache"
+                f"max-age={ttl}" if status not in ["ERROR", "CONFLICT"] else "no-cache"
             )
 
         if (
@@ -584,8 +590,11 @@ class API(object):
         ) and b64encode:
             messageData["isBase64Encoded"] = True
             messageData["body"] = base64.b64encode(response_body).decode()
-        else:
+        elif response_body is not None:
             messageData["body"] = response_body
+
+        if messageData.get("body"):
+            messageData["headers"]["Content-Length"] = len(messageData["body"])
 
         return messageData
 
@@ -643,6 +652,15 @@ class API(object):
                 json.dumps(
                     {"errorMessage": "Unsupported method: {}".format(http_method)}
                 ),
+            )
+        if http_method == "OPTIONS":
+            return self.response(
+                "EMPTY",
+                None,
+                None,
+                cors=route_entry.cors,
+                accepted_methods=route_entry.methods,
+                ttl=604800,
             )
 
         # remove access_token from kwargs

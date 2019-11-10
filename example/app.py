@@ -6,7 +6,7 @@ import json
 
 from lambda_proxy.proxy import API
 
-APP = API(name="app")
+APP = API(name="app", debug=True)
 
 
 @APP.route("/", methods=["GET"], cors=True)
@@ -15,16 +15,16 @@ def main() -> Tuple[str, str, str]:
     return ("OK", "text/plain", "Yo")
 
 
-@APP.route("/<regex([0-9]{2}-[a-zA-Z]{5}):regex1>", methods=["GET"], cors=True)
+@APP.route("/<regex(^[0-9]{2}-[a-zA-Z]{5}$):regex1>", methods=["GET"], cors=True)
 def _re_one(regex1: str) -> Tuple[str, str, str]:
     """Return JSON Object."""
-    return ("OK", "text/plain", input)
+    return ("OK", "text/plain", regex1)
 
 
 @APP.route("/<regex([0-9]{1}-[a-zA-Z]{5}):regex2>", methods=["GET"], cors=True)
 def _re_two(regex2: str) -> Tuple[str, str, str]:
     """Return JSON Object."""
-    return ("OK", "text/plain", input)
+    return ("OK", "text/plain", regex2)
 
 
 @APP.route("/add", methods=["GET", "POST"], cors=True)
@@ -33,8 +33,8 @@ def post(body) -> Tuple[str, str, str]:
     return ("OK", "text/plain", body)
 
 
-@APP.route("/<string:user>", methods=["GET"], cors=True)
-@APP.route("/<string:user>/<int:num>", methods=["GET"], cors=True)
+@APP.route("/user/<string:user>", methods=["GET"], cors=True)
+@APP.route("/user/<string:user>/<int:num>", methods=["GET"], cors=True)
 def double(user: str, num: int = 0) -> Tuple[str, str, str]:
     """Return JSON Object."""
     return ("OK", "text/plain", f"{user}-{num}")
@@ -60,7 +60,7 @@ def json_handler() -> Tuple[str, str, str]:
     return ("OK", "application/json", json.dumps({"app": "it works"}))
 
 
-@APP.route("/binary", methods=["GET"], cors=True, payload_compression_method="gzip")
+@APP.route("/bin/binary", methods=["GET"], cors=True, payload_compression_method="gzip")
 def bin() -> Tuple[str, str, io.BinaryIO]:
     """Return image."""
     with open("./rpix.png", "rb") as f:
@@ -68,7 +68,7 @@ def bin() -> Tuple[str, str, io.BinaryIO]:
 
 
 @APP.route(
-    "/b64binary",
+    "/bin/b64binary",
     methods=["GET"],
     cors=True,
     payload_compression_method="gzip",
