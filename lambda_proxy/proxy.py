@@ -652,7 +652,7 @@ class API(object):
         function_kwargs.update(request_params.copy())
         if http_method == "POST" and event.get("body"):
             body = event["body"]
-            if event.get("isBase64Encoded", "") == "true":
+            if event.get("isBase64Encoded"):
                 body = base64.b64decode(body).decode()
             function_kwargs.update(dict(body=body))
 
