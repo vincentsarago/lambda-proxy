@@ -534,7 +534,7 @@ class API(object):
         ]
 
         messageData = {
-            "statusCode": statusCode[status],
+            "statusCode": statusCode[status] if isinstance(status, str) else status,
             "headers": {"Content-Type": content_type},
         }
 
