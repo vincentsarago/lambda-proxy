@@ -332,10 +332,20 @@ def test_cache_control():
     app = proxy.API(name="test")
     funct = Mock(__name__="Mock", return_value=("OK", "text/plain", "heyyyy"))
     app._add_route(
-        "/test/<string:user>/<name>", funct, methods=["GET"], cors=True, cache_control='public,max-age=3600'
+        "/test/<string:user>/<name>",
+        funct,
+        methods=["GET"],
+        cors=True,
+        cache_control="public,max-age=3600",
     )
     funct_error = Mock(__name__="Mock", return_value=("NOK", "text/plain", "heyyyy"))
-    app._add_route("/yo", funct_error, methods=["GET"], cors=True, cache_control='public,max-age=3600')
+    app._add_route(
+        "/yo",
+        funct_error,
+        methods=["GET"],
+        cors=True,
+        cache_control="public,max-age=3600",
+    )
 
     event = {
         "path": "/test/remote/pixel",
