@@ -580,6 +580,8 @@ class API(object):
                 )
 
         if ttl:
+            from warnings import warn
+            warn("ttl will be deprecated in 6.0.0", DeprecationWarning, stacklevel=2)
             messageData["headers"]["Cache-Control"] = (
                 f"max-age={ttl}" if status == "OK" else "no-cache"
             )
