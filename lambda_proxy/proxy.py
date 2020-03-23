@@ -13,6 +13,7 @@ import json
 import zlib
 import base64
 import logging
+import warnings
 from functools import wraps
 
 from lambda_proxy import templates
@@ -357,7 +358,7 @@ class API(object):
 
         return False
 
-    def _add_route(self, path: str, endpoint: callable, **kwargs) -> None:
+    def _add_route(self, path: str, endpoint: Callable, **kwargs) -> None:
         methods = kwargs.pop("methods", ["GET"])
         cors = kwargs.pop("cors", False)
         token = kwargs.pop("token", "")
@@ -367,6 +368,13 @@ class API(object):
         cache_control = kwargs.pop("cache_control", None)
         description = kwargs.pop("description", None)
         tag = kwargs.pop("tag", None)
+
+        if ttl:
+            warnings.warn(
+                "ttl will be deprecated in 6.0.0, please use 'cache-control'",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
         if kwargs:
             raise TypeError(
@@ -428,7 +436,7 @@ class API(object):
 
         return False
 
-    def route(self, path: str, **kwargs) -> callable:
+    def route(self, path: str, **kwargs) -> Callable:
         """Register route."""
 
         def _register_view(endpoint):
@@ -437,20 +445,20 @@ class API(object):
 
         return _register_view
 
-    def pass_context(self, f: callable) -> callable:
+    def pass_context(self, f: Callable) -> Callable:
         """Decorator: pass the API Gateway context to the function."""
 
         @wraps(f)
-        def new_func(*args, **kwargs) -> callable:
+        def new_func(*args, **kwargs) -> Callable:
             return f(self.context, *args, **kwargs)
 
         return new_func
 
-    def pass_event(self, f: callable) -> callable:
+    def pass_event(self, f: Callable) -> Callable:
         """Decorator: pass the API Gateway event to the function."""
 
         @wraps(f)
-        def new_func(*args, **kwargs) -> callable:
+        def new_func(*args, **kwargs) -> Callable:
             return f(self.event, *args, **kwargs)
 
         return new_func
@@ -538,7 +546,7 @@ class API(object):
             "image/jp2",
         ]
 
-        messageData = {
+        messageData: Dict[str, Any] = {
             "statusCode": statusCode[status],
             "headers": {"Content-Type": content_type},
         }
@@ -580,9 +588,6 @@ class API(object):
                 )
 
         if ttl:
-            from warnings import warn
-
-            warn("ttl will be deprecated in 6.0.0", DeprecationWarning, stacklevel=2)
             messageData["headers"]["Cache-Control"] = (
                 f"max-age={ttl}" if status == "OK" else "no-cache"
             )

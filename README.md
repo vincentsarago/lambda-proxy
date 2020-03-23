@@ -129,7 +129,8 @@ This app will work but the documentation will only show the second route because
 - **token**: set `access_token` validation 
 - **payload_compression_method**: Enable and select an output body compression
 - **binary_b64encode**: base64 encode the output body (API Gateway)
-- **ttl**: Cache Control setting (Time to Live)
+- **ttl**: Cache Control setting (Time to Live) **(Deprecated in 6.0.0)**
+- **cache_control**: Cache Control setting
 - **description**: route description (for documentation)
 - **tag**: list of tags (for documentation)
 
@@ -141,7 +142,7 @@ Add a Cache Control header with a Time to Live (TTL) in seconds.
 from lambda_proxy.proxy import API
 APP = API(app_name="app")
 
-@APP.route('/test/tests/<id>', methods=['GET'], cors=True, ttl=3600)
+@APP.route('/test/tests/<id>', methods=['GET'], cors=True, cache_control="public,max-age=3600")
 def print_id(id):
    return ('OK', 'plain/text', id)
 ```
