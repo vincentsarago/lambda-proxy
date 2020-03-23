@@ -1,7 +1,7 @@
 Changes
 =======
 
-5.1.0 (TBD)
+5.1.0 (2020-03-23)
 - replace ttl by cache-control (#32)
 - allow integer status code (#35)
 
