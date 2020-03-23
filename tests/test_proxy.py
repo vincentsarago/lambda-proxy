@@ -26,7 +26,6 @@ json_apigw = os.path.join(os.path.dirname(__file__), "fixtures", "openapi_apigw.
 with open(json_apigw, "r") as f:
     openapi_apigw_content = json.loads(f.read())
 
-
 funct = Mock(__name__="Mock")
 
 
@@ -198,6 +197,32 @@ def test_proxy_API():
     res = app(event, {})
     assert res == resp
     funct.assert_called_with(user="remote", name="pixel")
+
+
+def test_proxy_intStatus_API():
+    """Add and parse route."""
+    app = proxy.API(name="test")
+    funct = Mock(__name__="Mock", return_value=(204, "text/plain", "heyyyy"))
+    app._add_route("/test", funct, methods=["GET"], cors=True)
+
+    event = {
+        "path": "/test",
+        "httpMethod": "GET",
+        "headers": {},
+        "queryStringParameters": {},
+    }
+    resp = {
+        "body": "heyyyy",
+        "headers": {
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Origin": "*",
+            "Content-Type": "text/plain",
+        },
+        "statusCode": 204,
+    }
+    res = app(event, {})
+    assert res == resp
 
 
 def test_proxy_APIpath():

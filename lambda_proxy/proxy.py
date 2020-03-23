@@ -546,8 +546,10 @@ class API(object):
             "image/jp2",
         ]
 
+        status = statusCode[status] if isinstance(status, str) else status
+
         messageData: Dict[str, Any] = {
-            "statusCode": statusCode[status],
+            "statusCode": status,
             "headers": {"Content-Type": content_type},
         }
 
@@ -589,11 +591,11 @@ class API(object):
 
         if ttl:
             messageData["headers"]["Cache-Control"] = (
-                f"max-age={ttl}" if status == "OK" else "no-cache"
+                f"max-age={ttl}" if status == 200 else "no-cache"
             )
         elif cache_control:
             messageData["headers"]["Cache-Control"] = (
-                cache_control if status == "OK" else "no-cache"
+                cache_control if status == 200 else "no-cache"
             )
 
         if (
