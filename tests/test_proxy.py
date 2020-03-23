@@ -53,8 +53,8 @@ def test_path_to_regex_convert():
     """Convert route path to regex."""
     path = "/jqtrde/<a>/<string:path>/<int:num>/<float:fl>/<uuid:id>/<regex([A-Z0-9]{5}):var>/<regex([a-z]{1}):othervar>"
     assert (
-            "^/jqtrde/([a-zA-Z0-9_]+)/([a-zA-Z0-9_]+)/([0-9]+)/([+-]?[0-9]+.[0-9]+)/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/([A-Z0-9]{5})/([a-z]{1})$"
-            == proxy._path_to_regex(path)
+        "^/jqtrde/([a-zA-Z0-9_]+)/([a-zA-Z0-9_]+)/([0-9]+)/([+-]?[0-9]+.[0-9]+)/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/([A-Z0-9]{5})/([a-z]{1})$"
+        == proxy._path_to_regex(path)
     )
 
 
@@ -199,7 +199,7 @@ def test_proxy_API():
     funct.assert_called_with(user="remote", name="pixel")
 
 
-def test_proxy_API():
+def test_proxy_intStatus_API():
     """Add and parse route."""
     app = proxy.API(name="test")
     funct = Mock(__name__="Mock", return_value=(204, "text/plain", "heyyyy"))
@@ -1117,12 +1117,12 @@ def test_API_doc():
 
     @app.route("/<user>/<float:num>", methods=["GET"])
     def _options(
-            user: str,
-            num: float = 1.0,
-            opt1: str = "yep",
-            opt2: int = 2,
-            opt3: float = 2.0,
-            **kwargs,
+        user: str,
+        num: float = 1.0,
+        opt1: str = "yep",
+        opt2: int = 2,
+        opt3: float = 2.0,
+        **kwargs,
     ) -> Tuple[str, str, str]:
         """Return something."""
         return ("OK", "text/plain", "yo")
@@ -1218,12 +1218,12 @@ def test_API_doc_apigw():
 
     @app.route("/<user>/<float:num>", methods=["GET"])
     def _options(
-            user: str,
-            num: float = 1.0,
-            opt1: str = "yep",
-            opt2: int = 2,
-            opt3: float = 2.0,
-            **kwargs,
+        user: str,
+        num: float = 1.0,
+        opt1: str = "yep",
+        opt2: int = 2,
+        opt3: float = 2.0,
+        **kwargs,
     ) -> Tuple[str, str, str]:
         """Return something."""
         return ("OK", "text/plain", "yo")
@@ -1304,12 +1304,12 @@ def test_API_docCustomDomain():
 
     @app.route("/<user>/<float:num>", methods=["GET"])
     def _options(
-            user: str,
-            num: float = 1.0,
-            opt1: str = "yep",
-            opt2: int = 2,
-            opt3: float = 2.0,
-            **kwargs,
+        user: str,
+        num: float = 1.0,
+        opt1: str = "yep",
+        opt2: int = 2,
+        opt3: float = 2.0,
+        **kwargs,
     ) -> Tuple[str, str, str]:
         """Return something."""
         return ("OK", "text/plain", "yo")
@@ -1542,8 +1542,8 @@ def testApigwHostUrl():
     }
     _ = app(event, {})
     assert (
-            app.host
-            == "https://abcdefghij.execute-api.eu-central-1.amazonaws.com/production"
+        app.host
+        == "https://abcdefghij.execute-api.eu-central-1.amazonaws.com/production"
     )
 
     # resource "proxy+", no apigwg, no path mapping, no api prefix
