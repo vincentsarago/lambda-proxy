@@ -1,6 +1,10 @@
 Changes
 =======
 
+5.1.0 (TBD)
+- replace ttl by cache-control (#32)
+
+
 5.0.2 (2019-11-20)
 - fix base64Encoded for POST requests
 
