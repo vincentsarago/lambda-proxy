@@ -1,5 +1,7 @@
 Changes
 =======
+5.1.1 (2020-04-03)
+- Adapt for httpAPI (#39, author kylebarron)
 
 5.1.0 (2020-03-23)
 - replace ttl by cache-control (#32)
