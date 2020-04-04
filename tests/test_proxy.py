@@ -1558,6 +1558,23 @@ def testApigwPath():
     assert not p.path_mapping
     assert p.prefix == "/production/api"
 
+    # resource "proxy+", apigwg ($default), api prefix (api)
+    # $default is the default stage used with API Gateway's HTTP API
+    # Should point to base URL
+    event = {
+        "resource": "/api/{proxy+}",
+        "pathParameters": {"proxy": "test/1234/pix"},
+        "path": "/prefix/api/test/1234/pix",
+        "headers": {"host": "afakeapi.execute-api.us-east-1.amazonaws.com"},
+        "requestContext": {"stage": "$default"},
+    }
+    p = proxy.ApigwPath(event)
+    assert p.path == "/test/1234/pix"
+    assert p.apigw_stage == "/$default"
+    assert p.api_prefix == "/api"
+    assert not p.path_mapping
+    assert p.prefix == "/api"
+
 
 def testApigwHostUrl():
     """Test url property."""

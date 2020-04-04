@@ -26,6 +26,10 @@ $ pip install -e .
 
 # Usage
 
+Lambda proxy is designed to work well with both API Gateway's REST API and the
+newer and cheaper HTTP API. If you have issues using with the HTTP API, please
+open an issue.
+
 With GET request
 
 ```python
@@ -76,7 +80,7 @@ def print_id(body):
     body = json.loads(body)
 ```
 
-# Routes 
+# Routes
 
 Route schema is simmilar to the one used in [Flask](http://flask.pocoo.org/docs/1.0/api/#url-route-registrations)
 
@@ -88,14 +92,14 @@ Converters:
 - `float`: float number
 - `uuid`: UUID
 
-example: 
+example:
 - `/app/<user>/<id>` (`user` and `id` are variables)
 - `/app/<string:value>/<float:num>` (`value` will be a string, while `num` will be a float)
 
 ## Regex
 You can also add regex parameters descriptions using special converter `regex()`
 
-example: 
+example:
 ```python
 @APP.route("/app/<regex([a-z]+):regularuser>", methods=['GET'])
 def print_user(regularuser):
@@ -121,12 +125,12 @@ def print_user(user):
 ```
 This app will work but the documentation will only show the second route because in `openapi.json`, route names will be `/app/{user}` for both routes.
 
-# Route Options 
+# Route Options
 
 - **path**: the URL rule as string
 - **methods**: list of HTTP methods allowed, default: ["GET"]
 - **cors**: allow CORS, default: `False`
-- **token**: set `access_token` validation 
+- **token**: set `access_token` validation
 - **payload_compression_method**: Enable and select an output body compression
 - **binary_b64encode**: base64 encode the output body (API Gateway)
 - **ttl**: Cache Control setting (Time to Live) **(Deprecated in 6.0.0)**
@@ -135,7 +139,7 @@ This app will work but the documentation will only show the second route because
 - **tag**: list of tags (for documentation)
 
 ## Cache Control
-	
+
 Add a Cache Control header with a Time to Live (TTL) in seconds.
 
 ```python
@@ -274,13 +278,13 @@ def print_id(ctx, evt, id):
 
 # Automatic OpenAPI documentation
 
-By default the APP (`lambda_proxy.proxy.API`) is provided with three (3) routes: 
-- `/openapi.json`: print OpenAPI JSON definition 
+By default the APP (`lambda_proxy.proxy.API`) is provided with three (3) routes:
+- `/openapi.json`: print OpenAPI JSON definition
 
-- `/docs`: swagger html UI 
+- `/docs`: swagger html UI
 ![swagger](https://user-images.githubusercontent.com/10407788/58707335-9cbb0480-8382-11e9-927f-8d992cf2531a.jpg)
 
-- `/redoc`: Redoc html UI 
+- `/redoc`: Redoc html UI
 ![redoc](https://user-images.githubusercontent.com/10407788/58707338-9dec3180-8382-11e9-8dec-18173e39258f.jpg)
 
 **Function annotations**
@@ -297,7 +301,7 @@ def print_id(id: int, num: float = 0.2) -> Tuple(str, str, str):
     return ('OK', 'plain/text', id)
 ```
 
-In the example above, our route `/test/<int:id>` define an input `id` to be a `INT`, while we also add this hint to the function `print_id` we also specify the type (and default) of the `num` option. 
+In the example above, our route `/test/<int:id>` define an input `id` to be a `INT`, while we also add this hint to the function `print_id` we also specify the type (and default) of the `num` option.
 
 # Custom Domain and path mapping
 

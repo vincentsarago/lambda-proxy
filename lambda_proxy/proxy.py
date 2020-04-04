@@ -162,6 +162,9 @@ class ApigwPath(object):
     def prefix(self):
         """Return the API prefix."""
         if self.apigw_stage:
+            if self.apigw_stage == "/$default":
+                return self.api_prefix
+
             return self.apigw_stage + self.api_prefix
         elif self.path_mapping:
             return self.path_mapping + self.api_prefix
