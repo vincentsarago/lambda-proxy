@@ -54,6 +54,10 @@ def print_id(id, body):
     return ('OK', 'plain/text', id)
 ```
 
+**Note**
+
+Starting in version 5.2.0, users can now add route using `@APP.get` and `@APP.post` removing the need to add `methods=[**]`
+
 ## Binary body
 
 Starting from version 5.0.0, lambda-proxy will decode base64 encoded body on POST message.
@@ -101,11 +105,11 @@ You can also add regex parameters descriptions using special converter `regex()`
 
 example:
 ```python
-@APP.route("/app/<regex([a-z]+):regularuser>", methods=['GET'])
+@APP.get("/app/<regex([a-z]+):regularuser>")
 def print_user(regularuser):
     return ('OK', 'plain/text', f"regular {regularuser}")
 
-@APP.route("/app/<regex([A-Z]+):capitaluser>", methods=['GET'])
+@APP.get("/app/<regex([A-Z]+):capitaluser>")
 def print_user(capitaluser):
     return ('OK', 'plain/text', f"CAPITAL {capitaluser}")
 ```
@@ -115,11 +119,11 @@ def print_user(capitaluser):
 when using **regex()** you must use different variable names or the route might not show up in the documentation.
 
 ```python
-@APP.route("/app/<regex([a-z]+):user>", methods=['GET'])
+@APP.get("/app/<regex([a-z]+):user>")
 def print_user(user):
     return ('OK', 'plain/text', f"regular {user}")
 
-@APP.route("/app/<regex([A-Z]+):user>", methods=['GET'])
+@APP.get("/app/<regex([A-Z]+):user>")
 def print_user(user):
     return ('OK', 'plain/text', f"CAPITAL {user}")
 ```
@@ -146,7 +150,7 @@ Add a Cache Control header with a Time to Live (TTL) in seconds.
 from lambda_proxy.proxy import API
 APP = API(app_name="app")
 
-@APP.route('/test/tests/<id>', methods=['GET'], cors=True, cache_control="public,max-age=3600")
+@APP.get('/test/tests/<id>', cors=True, cache_control="public,max-age=3600")
 def print_id(id):
    return ('OK', 'plain/text', id)
 ```
@@ -162,7 +166,7 @@ from lambda_proxy.proxy import API
 
 APP = API(name="app")
 
-@APP.route('/test/tests/<filename>.jpg', methods=['GET'], cors=True, binary_b64encode=True)
+@APP.get('/test/tests/<filename>.jpg', cors=True, binary_b64encode=True)
 def print_id(filename):
     with open(f"{filename}.jpg", "rb") as f:
         return ('OK', 'image/jpeg', f.read())
@@ -177,9 +181,8 @@ from lambda_proxy.proxy import API
 
 APP = API(name="app")
 
-@APP.route(
+@APP.get(
    '/test/tests/<filename>.jpg',
-   methods=['GET'],
    cors=True,
    binary_b64encode=True,
    payload_compression_method="gzip"
@@ -202,7 +205,7 @@ from lambda_proxy.proxy import API
 
 APP = API(name="app")
 
-@APP.route('/test/tests/<id>', methods=['GET'], cors=True, token=True)
+@APP.get('/test/tests/<id>', cors=True, token=True)
 def print_id(id):
     return ('OK', 'plain/text', id)
 ```
@@ -216,7 +219,7 @@ from lambda_proxy.proxy import API
 
 APP = API(name="app")
 
-@APP.route('/<id>', methods=['GET'], cors=True)
+@APP.get('/<id>', cors=True)
 def print_id(id, name=None):
     return ('OK', 'plain/text', f"{id}{name}")
 ```
@@ -237,8 +240,8 @@ $ curl /000001?name=vincent
 from lambda_proxy.proxy import API
 APP = API(name="app")
 
-@APP.route('/<id>', methods=['GET'], cors=True)
-@APP.route('/<id>/<int:number>', methods=['GET'], cors=True)
+@APP.get('/<id>', cors=True)
+@APP.get('/<id>/<int:number>', cors=True)
 def print_id(id, number=None, name=None):
     return ('OK', 'plain/text', f"{id}-{name}-{number}")
 ```
@@ -267,7 +270,7 @@ from lambda_proxy.proxy import API
 
 APP = API(name="app")
 
-@APP.route("/<id>", methods=["GET"], cors=True)
+@APP.get("/<id>", cors=True)
 @APP.pass_event
 @APP.pass_context
 def print_id(ctx, evt, id):
@@ -316,9 +319,9 @@ api = API(name="api", debug=True)
 
 
 # This route won't work when using path mapping
-@api.route("/", methods=["GET"], cors=True)
+@api.get("/", cors=True)
 # This route will work only if the path mapping is set to /api
-@api.route("/api", methods=["GET"], cors=True)
+@api.get("/api", cors=True)
 def index():
     html = """<!DOCTYPE html>
     <html>
@@ -330,7 +333,7 @@ def index():
     return ("OK", "text/html", html)
 
 
-@api.route("/yo", methods=["GET"], cors=True)
+@api.get("/yo", cors=True)
 def yo():
     return ("OK", "text/plain", "YOOOOO")
 ```
@@ -358,7 +361,9 @@ $ cd lambda-proxy
 $ pip install -e .[dev]
 ```
 
-This repo is set to use pre-commit to run *flake8*, *pydocstring* and *black* ("uncompromising Python code formatter") when committing new code.
+**Python3.7 only**
+
+This repo is set to use pre-commit to run *mypy*, *flake8*, *pydocstring* and *black* ("uncompromising Python code formatter") when committing new code.
 
 ```bash
 $ pre-commit install
@@ -367,6 +372,7 @@ $ git commit -m'my change'
    black.........................Passed
    Flake8........................Passed
    Verifying PEP257 Compliance...Passed
+   mypy..........................Passed
 $ git push origin
 ```
 

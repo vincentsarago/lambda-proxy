@@ -1,80 +1,83 @@
 """app: handle requests."""
 
-from typing import Dict, Tuple, io
+from typing import Dict, Tuple
+import typing.io
 
 import json
 
 from lambda_proxy.proxy import API
 
-APP = API(name="app")
+app = API(name="app", debug=True)
 
 
-@APP.route("/", methods=["GET"], cors=True)
+@app.get("/", cors=True)
 def main() -> Tuple[str, str, str]:
     """Return JSON Object."""
     return ("OK", "text/plain", "Yo")
 
 
-@APP.route("/<regex([0-9]{2}-[a-zA-Z]{5}):regex1>", methods=["GET"], cors=True)
+@app.get("/<regex([0-9]{2}-[a-zA-Z]{5}):regex1>", cors=True)
 def _re_one(regex1: str) -> Tuple[str, str, str]:
     """Return JSON Object."""
-    return ("OK", "text/plain", input)
+    return ("OK", "text/plain", regex1)
 
 
-@APP.route("/<regex([0-9]{1}-[a-zA-Z]{5}):regex2>", methods=["GET"], cors=True)
+@app.get("/<regex([0-9]{1}-[a-zA-Z]{5}):regex2>", cors=True)
 def _re_two(regex2: str) -> Tuple[str, str, str]:
     """Return JSON Object."""
-    return ("OK", "text/plain", input)
+    return ("OK", "text/plain", regex2)
 
 
-@APP.route("/add", methods=["GET", "POST"], cors=True)
-def post(body) -> Tuple[str, str, str]:
+@app.post("/people", cors=True)
+def people_post(body) -> Tuple[str, str, str]:
     """Return JSON Object."""
     return ("OK", "text/plain", body)
 
 
-@APP.route("/<string:user>", methods=["GET"], cors=True)
-@APP.route("/<string:user>/<int:num>", methods=["GET"], cors=True)
+@app.get("/people", cors=True)
+def people_get() -> Tuple[str, str, str]:
+    """Return JSON Object."""
+    return ("OK", "text/plain", "Nope")
+
+
+@app.get("/<string:user>", cors=True)
+@app.get("/<string:user>/<int:num>", cors=True)
 def double(user: str, num: int = 0) -> Tuple[str, str, str]:
     """Return JSON Object."""
     return ("OK", "text/plain", f"{user}-{num}")
 
 
-@APP.route("/kw/<string:user>", methods=["GET"], cors=True)
+@app.get("/kw/<string:user>", cors=True)
 def kw_method(user: str, **kwargs: Dict) -> Tuple[str, str, str]:
     """Return JSON Object."""
     return ("OK", "text/plain", f"{user}")
 
 
-@APP.route("/ctx/<string:user>", methods=["GET"], cors=True)
-@APP.pass_context
-@APP.pass_event
+@app.get("/ctx/<string:user>", cors=True)
+@app.pass_context
+@app.pass_event
 def ctx_method(evt: Dict, ctx: Dict, user: str, num: int = 0) -> Tuple[str, str, str]:
     """Return JSON Object."""
     return ("OK", "text/plain", f"{user}-{num}")
 
 
-@APP.route("/json", methods=["GET"], cors=True)
+@app.get("/json", cors=True)
 def json_handler() -> Tuple[str, str, str]:
     """Return JSON Object."""
     return ("OK", "application/json", json.dumps({"app": "it works"}))
 
 
-@APP.route("/binary", methods=["GET"], cors=True, payload_compression_method="gzip")
-def bin() -> Tuple[str, str, io.BinaryIO]:
+@app.get("/binary", cors=True, payload_compression_method="gzip")
+def bin() -> Tuple[str, str, typing.io.BinaryIO]:
     """Return image."""
     with open("./rpix.png", "rb") as f:
         return ("OK", "image/png", f.read())
 
 
-@APP.route(
-    "/b64binary",
-    methods=["GET"],
-    cors=True,
-    payload_compression_method="gzip",
-    binary_b64encode=True,
+@app.get(
+    "/b64binary", cors=True, payload_compression_method="gzip", binary_b64encode=True,
 )
-def b64bin() -> Tuple[str, str, io.BinaryIO]:
+def b64bin() -> Tuple[str, str, typing.io.BinaryIO]:
     """Return base64 encoded image."""
     with open("./rpix.png", "rb") as f:
         return ("OK", "image/png", f.read())

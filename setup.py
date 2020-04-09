@@ -6,15 +6,12 @@ with open("README.md") as f:
     readme = f.read()
 
 
-# Runtime requirements.
-inst_reqs = []
-
 extra_reqs = {"test": ["pytest", "pytest-cov", "mock"]}
 
 
 setup(
     name="lambda-proxy",
-    version="5.1.1",
+    version="5.2.0",
     description=u"Simple AWS Lambda proxy to handle API Gateway request",
     long_description=readme,
     long_description_content_type="text/markdown",
@@ -34,6 +31,5 @@ setup(
     packages=find_packages(exclude=["ez_setup", "examples", "tests"]),
     include_package_data=True,
     zip_safe=False,
-    install_requires=inst_reqs,
     extras_require=extra_reqs,
 )
