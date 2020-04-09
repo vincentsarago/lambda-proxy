@@ -1,6 +1,6 @@
 Changes
 =======
-5.2.0 (TBD)
+5.2.0 (2020-04-09)
 - change `api.routes` to list to allow path per methods 
 (e.g you can now add route with the same path but with different methods).
 - add `@app.get` `@app.post` route wrapper to add routes
