@@ -3,7 +3,8 @@
 Freely adapted from https://github.com/aws/chalice
 
 """
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Sequence, Union
+
 import inspect
 
 import os
@@ -115,7 +116,7 @@ class RouteEntry(object):
         """Check for equality."""
         return self.__dict__ == other.__dict__
 
-    def _get_path_args(self) -> Tuple:
+    def _get_path_args(self) -> Sequence[Any]:
         route_args = [i.group() for i in params_expr.finditer(self.path)]
         args = [param_pattern.match(arg).groupdict() for arg in route_args]
         return args
@@ -189,9 +190,9 @@ class API(object):
     ) -> None:
         """Initialize API object."""
         self.name: str = name
-        self.description: str = description
+        self.description: Optional[str] = description
         self.version: str = version
-        self.routes: Dict = {}
+        self.routes: List[RouteEntry] = []
         self.context: Dict = {}
         self.event: Dict = {}
         self.request_path: ApigwPath
@@ -291,7 +292,7 @@ class API(object):
         components: Dict[str, Dict] = {}
         paths: Dict[str, Dict] = {}
 
-        for route_path, route in self.routes.items():
+        for route in self.routes:
             path: Dict[str, Dict] = {}
 
             default_operation: Dict[str, Any] = {}
@@ -385,13 +386,14 @@ class API(object):
                 "arguments: %s" % ", ".join(list(kwargs))
             )
 
-        if path in self.routes:
-            raise ValueError(
-                'Duplicate route detected: "{}"\n'
-                "URL paths must be unique.".format(path)
-            )
+        for method in methods:
+            if self._checkroute(path, method):
+                raise ValueError(
+                    'Duplicate route detected: "{}"\n'
+                    "URL paths must be unique.".format(path)
+                )
 
-        self.routes[path] = RouteEntry(
+        route = RouteEntry(
             endpoint,
             path,
             methods,
@@ -404,14 +406,21 @@ class API(object):
             description,
             tag,
         )
+        self.routes.append(route)
 
-    def _url_matching(self, url: str) -> str:
-        for path, route in self.routes.items():
+    def _checkroute(self, path: str, method: str) -> bool:
+        for route in self.routes:
+            if method in route.methods and path == route.path:
+                return True
+        return False
+
+    def _url_matching(self, url: str, method: str) -> Optional[RouteEntry]:
+        for route in self.routes:
             expr = re.compile(route.route_regex)
-            if expr.match(url):
-                return path
+            if method in route.methods and expr.match(url):
+                return route
 
-        return ""
+        return None
 
     def _get_matching_args(self, route: RouteEntry, url: str) -> Dict:
         route_expr = re.compile(route.route_regex)
@@ -441,6 +450,26 @@ class API(object):
 
     def route(self, path: str, **kwargs) -> Callable:
         """Register route."""
+
+        def _register_view(endpoint):
+            self._add_route(path, endpoint, **kwargs)
+            return endpoint
+
+        return _register_view
+
+    def get(self, path: str, **kwargs) -> Callable:
+        """Register GET route."""
+        kwargs.update(dict(methods=["GET"]))
+
+        def _register_view(endpoint):
+            self._add_route(path, endpoint, **kwargs)
+            return endpoint
+
+        return _register_view
+
+    def post(self, path: str, **kwargs) -> Callable:
+        """Register POST route."""
+        kwargs.update(dict(methods=["POST"]))
 
         def _register_view(endpoint):
             self._add_route(path, endpoint, **kwargs)
@@ -510,11 +539,11 @@ class API(object):
 
     def response(
         self,
-        status: str,
+        status: Union[int, str],
         content_type: str,
         response_body: Any,
         cors: bool = False,
-        accepted_methods: Tuple = [],
+        accepted_methods: Sequence = [],
         accepted_compression: str = "",
         compression: str = "",
         b64encode: bool = False,
@@ -633,20 +662,20 @@ class API(object):
                 json.dumps({"errorMessage": "Missing or invalid path"}),
             )
 
-        if not self._url_matching(self.request_path.path):
+        http_method = event["httpMethod"]
+        route_entry = self._url_matching(self.request_path.path, http_method)
+        if not route_entry:
             return self.response(
                 "NOK",
                 "application/json",
                 json.dumps(
                     {
-                        "errorMessage": "No view function for: {}".format(
-                            self.request_path.path
+                        "errorMessage": "No view function for: {} - {}".format(
+                            http_method, self.request_path.path
                         )
                     }
                 ),
             )
-
-        route_entry = self.routes[self._url_matching(self.request_path.path)]
 
         request_params = event.get("queryStringParameters", {}) or {}
         if route_entry.token:
@@ -656,16 +685,6 @@ class API(object):
                     "application/json",
                     json.dumps({"message": "Invalid access token"}),
                 )
-
-        http_method = event["httpMethod"]
-        if http_method not in route_entry.methods:
-            return self.response(
-                "NOK",
-                "application/json",
-                json.dumps(
-                    {"errorMessage": "Unsupported method: {}".format(http_method)}
-                ),
-            )
 
         # remove access_token from kwargs
         request_params.pop("access_token", False)

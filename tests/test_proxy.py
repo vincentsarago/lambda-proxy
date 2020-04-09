@@ -109,7 +109,7 @@ def test_API_init():
     """Should work as expected."""
     app = proxy.API(name="test")
     assert app.name == "test"
-    assert len(list(app.routes.keys())) == 3
+    assert len(list(app.routes)) == 3
     assert not app.debug
     assert app.log.getEffectiveLevel() == 40  # ERROR
 
@@ -122,7 +122,7 @@ def test_API_noDocs():
     """Do not set default documentation routes."""
     app = proxy.API(name="test", add_docs=False)
     assert app.name == "test"
-    assert len(list(app.routes.keys())) == 0
+    assert len(list(app.routes)) == 0
     assert not app.debug
     assert app.log.getEffectiveLevel() == 40  # ERROR
 
@@ -156,7 +156,7 @@ def test_API_logDebug():
 def test_API_addRoute():
     """Add and parse route."""
     app = proxy.API(name="test")
-    assert len(list(app.routes.keys())) == 3
+    assert len(list(app.routes)) == 3
 
     app._add_route("/endpoint/test/<id>", funct, methods=["GET"], cors=True, token="yo")
     assert app.routes
@@ -761,7 +761,7 @@ def test_API_routeURL():
         "queryStringParameters": {},
     }
     resp = {
-        "body": '{"errorMessage": "No view function for: /users/remotepixel"}',
+        "body": '{"errorMessage": "No view function for: GET - /users/remotepixel"}',
         "headers": {"Content-Type": "application/json"},
         "statusCode": 400,
     }
@@ -775,7 +775,7 @@ def test_API_routeURL():
         "queryStringParameters": {},
     }
     resp = {
-        "body": '{"errorMessage": "Unsupported method: POST"}',
+        "body": '{"errorMessage": "No view function for: POST - /test/remotepixel"}',
         "headers": {"Content-Type": "application/json"},
         "statusCode": 400,
     }
@@ -789,7 +789,7 @@ def test_API_routeURL():
         "queryStringParameters": {},
     }
     resp = {
-        "body": '{"errorMessage": "No view function for: /users/remotepixel"}',
+        "body": '{"errorMessage": "No view function for: GET - /users/remotepixel"}',
         "headers": {"Content-Type": "application/json"},
         "statusCode": 400,
     }
@@ -803,7 +803,7 @@ def test_API_routeURL():
         "queryStringParameters": {},
     }
     resp = {
-        "body": '{"errorMessage": "No view function for: /test/users/remotepixel"}',
+        "body": '{"errorMessage": "No view function for: GET - /test/users/remotepixel"}',
         "headers": {"Content-Type": "application/json"},
         "statusCode": 400,
     }
@@ -1651,3 +1651,55 @@ def testApigwHostUrl():
 
     _ = app(event, {})
     assert app.host == "http://127.0.0.0:8000"
+
+
+def test_API_simpleRoute():
+    """Should work as expected."""
+    app = proxy.API(name="test")
+
+    @app.post("/test")
+    def _post(body: str) -> Tuple[str, str, str]:
+        """Return something."""
+        return ("OK", "text/plain", body)
+
+    @app.get("/<user>", tag=["users"], description="a route", cors=True)
+    def _user(user: str) -> Tuple[str, str, str]:
+        """Return something."""
+        return ("OK", "text/plain", user)
+
+    event = {
+        "path": "/remotepixel",
+        "httpMethod": "GET",
+        "headers": {},
+        "queryStringParameters": {},
+    }
+    headers = {
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "GET",
+        "Access-Control-Allow-Origin": "*",
+        "Content-Type": "text/plain",
+    }
+
+    res = app(event, {})
+    assert res["statusCode"] == 200
+    assert res["headers"] == headers
+    assert res["body"] == "remotepixel"
+
+    event = {
+        "path": "/test",
+        "httpMethod": "POST",
+        "headers": {},
+        "queryStringParameters": {},
+        "body": "yo",
+    }
+    headers = {
+        "Content-Type": "text/plain",
+    }
+    res = app(event, {})
+    assert res["statusCode"] == 200
+    assert res["headers"] == headers
+    assert res["body"] == "yo"
+
+    # Clear logger handlers
+    for h in app.log.handlers:
+        app.log.removeHandler(h)

@@ -1,5 +1,11 @@
 Changes
 =======
+5.2.0 (TBD)
+- change `api.routes` to list to allow path per methods 
+(e.g you can now add route with the same path but with different methods).
+- add `@app.get` `@app.post` route wrapper to add routes
+- added mypy integration
+
 5.1.1 (2020-04-03)
 - Adapt for httpAPI (#39, author kylebarron)
 
