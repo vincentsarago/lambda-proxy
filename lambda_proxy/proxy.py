@@ -187,6 +187,7 @@ class API(object):
         configure_logs: bool = True,
         debug: bool = False,
         https: bool = True,
+        automatic_options: bool = True,
     ) -> None:
         """Initialize API object."""
         self.name: str = name
@@ -198,6 +199,7 @@ class API(object):
         self.request_path: ApigwPath
         self.debug: bool = debug
         self.https: bool = https
+        self.automatic_options: bool = automatic_options
         self.log = logging.getLogger(self.name)
         if configure_logs:
             self._configure_logging()
@@ -393,6 +395,9 @@ class API(object):
                     "URL paths must be unique.".format(path)
                 )
 
+        if "OPTIONS" not in methods and self.automatic_options:
+            methods.append("OPTIONS")
+
         route = RouteEntry(
             endpoint,
             path,
@@ -477,6 +482,46 @@ class API(object):
 
         return _register_view
 
+    def put(self, path: str, **kwargs) -> Callable:
+        """Register PUT route."""
+        kwargs.update(dict(methods=["PUT"]))
+
+        def _register_view(endpoint):
+            self._add_route(path, endpoint, **kwargs)
+            return endpoint
+
+        return _register_view
+
+    def patch(self, path: str, **kwargs) -> Callable:
+        """Register PATCH route."""
+        kwargs.update(dict(methods=["PATCH"]))
+
+        def _register_view(endpoint):
+            self._add_route(path, endpoint, **kwargs)
+            return endpoint
+
+        return _register_view
+
+    def options(self, path: str, **kwargs) -> Callable:
+        """Register OPTIONS route."""
+        raise NotImplementedError("OPTIONS is not implemented")
+
+    def head(self, path: str, **kwargs) -> Callable:
+        """Register HEAD route."""
+        raise NotImplementedError("HEAD is not implemented")
+
+    def delete(self, path: str, **kwargs) -> Callable:
+        """Register DELETE route."""
+        raise NotImplementedError("DELETE is not implemented")
+
+    def connect(self, path: str, **kwargs) -> Callable:
+        """Register CONNECT route."""
+        raise NotImplementedError("CONNECT is not implemented")
+
+    def trace(self, path: str, **kwargs) -> Callable:
+        """Register TRACE route."""
+        raise NotImplementedError("TRACE is not implemented")
+
     def pass_context(self, f: Callable) -> Callable:
         """Decorator: pass the API Gateway context to the function."""
 
@@ -536,6 +581,36 @@ class API(object):
             )
 
         self._add_route("/redoc", _redoc_ui_html, cors=True, tag=["documentation"])
+
+    def preflight_response(
+        self,
+        accepted_methods: Sequence = [],
+        allow_origins: Sequence = (),
+        allow_credentials: bool = True,
+        cache_control: Optional[str] = None,
+    ):
+        """Create preflight response."""
+        messageData: Dict[str, Any] = {
+            "statusCode": 200,
+            "headers": {"Content-Type": "text/plain"},
+        }
+
+        # https://github.com/encode/starlette/blob/master/starlette/middleware/cors.py#L41-L51
+        if "*" in allow_origins:
+            messageData["headers"]["Access-Control-Allow-Origin"] = "*"
+        else:
+            messageData["headers"]["Vary"] = "Origin"
+
+        if allow_credentials:
+            messageData["headers"]["Access-Control-Allow-Credentials"] = "true"
+
+        messageData["headers"]["Access-Control-Allow-Methods"] = ",".join(
+            accepted_methods
+        )
+        if cache_control:
+            messageData["headers"]["Cache-Control"] = cache_control
+
+        return messageData
 
     def response(
         self,
@@ -675,6 +750,17 @@ class API(object):
                         )
                     }
                 ),
+            )
+
+        if http_method == "OPTIONS":
+            params = {}
+            if route_entry.cors:
+                params["allow_origins"] = "*"
+                params["allow_credentials"] = True
+            return self.preflight_response(
+                accepted_methods=route_entry.methods,
+                cache_control=route_entry.cache_control,
+                **params,
             )
 
         request_params = event.get("queryStringParameters", {}) or {}

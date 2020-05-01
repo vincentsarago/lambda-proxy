@@ -188,7 +188,7 @@ def test_proxy_API():
         "body": "heyyyy",
         "headers": {
             "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Methods": "GET,OPTIONS",
             "Access-Control-Allow-Origin": "*",
             "Content-Type": "text/plain",
         },
@@ -215,7 +215,7 @@ def test_proxy_intStatus_API():
         "body": "heyyyy",
         "headers": {
             "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Methods": "GET,OPTIONS",
             "Access-Control-Allow-Origin": "*",
             "Content-Type": "text/plain",
         },
@@ -242,7 +242,7 @@ def test_proxy_APIpath():
         "body": "heyyyy",
         "headers": {
             "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Methods": "GET,OPTIONS",
             "Access-Control-Allow-Origin": "*",
             "Content-Type": "text/plain",
         },
@@ -271,7 +271,7 @@ def test_proxy_APIpathProxy():
         "body": "heyyyy",
         "headers": {
             "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Methods": "GET,OPTIONS",
             "Access-Control-Allow-Origin": "*",
             "Content-Type": "text/plain",
         },
@@ -300,7 +300,7 @@ def test_proxy_APIpathCustomDomain():
         "body": "heyyyy",
         "headers": {
             "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Methods": "GET,OPTIONS",
             "Access-Control-Allow-Origin": "*",
             "Content-Type": "text/plain",
         },
@@ -334,7 +334,7 @@ def test_ttl():
         "body": "heyyyy",
         "headers": {
             "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Methods": "GET,OPTIONS",
             "Access-Control-Allow-Origin": "*",
             "Content-Type": "text/plain",
             "Cache-Control": "max-age=3600",
@@ -385,7 +385,7 @@ def test_cache_control():
         "body": "heyyyy",
         "headers": {
             "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Methods": "GET,OPTIONS",
             "Access-Control-Allow-Origin": "*",
             "Content-Type": "text/plain",
             "Cache-Control": "public,max-age=3600",
@@ -422,7 +422,7 @@ def test_querystringNull():
         "body": "heyyyy",
         "headers": {
             "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Methods": "GET,OPTIONS",
             "Access-Control-Allow-Origin": "*",
             "Content-Type": "text/plain",
         },
@@ -449,7 +449,7 @@ def test_headersNull():
         "body": "heyyyy",
         "headers": {
             "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Methods": "GET,OPTIONS",
             "Access-Control-Allow-Origin": "*",
             "Content-Type": "text/plain",
         },
@@ -480,7 +480,7 @@ def test_API_encoding():
         "body": body,
         "headers": {
             "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Methods": "GET,OPTIONS",
             "Access-Control-Allow-Origin": "*",
             "Content-Type": "image/jpeg",
         },
@@ -506,7 +506,7 @@ def test_API_encoding():
         "body": b64body,
         "headers": {
             "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Methods": "GET,OPTIONS",
             "Access-Control-Allow-Origin": "*",
             "Content-Type": "image/jpeg",
         },
@@ -545,7 +545,7 @@ def test_API_compression():
         "body": gzbody,
         "headers": {
             "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Methods": "GET,OPTIONS",
             "Access-Control-Allow-Origin": "*",
             "Content-Encoding": "gzip",
             "Content-Type": "image/jpeg",
@@ -566,7 +566,7 @@ def test_API_compression():
         "body": body,
         "headers": {
             "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Methods": "GET,OPTIONS",
             "Access-Control-Allow-Origin": "*",
             "Content-Type": "image/jpeg",
         },
@@ -594,7 +594,7 @@ def test_API_compression():
         "body": b64gzipbody,
         "headers": {
             "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Methods": "GET,OPTIONS",
             "Access-Control-Allow-Origin": "*",
             "Content-Encoding": "gzip",
             "Content-Type": "image/jpeg",
@@ -633,7 +633,7 @@ def test_API_compression():
         "body": b64gzipbody,
         "headers": {
             "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Methods": "GET,OPTIONS",
             "Access-Control-Allow-Origin": "*",
             "Content-Encoding": "gzip",
             "Content-Type": "application/json",
@@ -655,7 +655,7 @@ def test_API_compression():
         "body": json.dumps({"test": 0}),
         "headers": {
             "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Methods": "GET,OPTIONS",
             "Access-Control-Allow-Origin": "*",
             "Content-Type": "application/json",
         },
@@ -702,7 +702,7 @@ def test_API_otherCompression():
         "body": zlibbody,
         "headers": {
             "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Methods": "GET,OPTIONS",
             "Access-Control-Allow-Origin": "*",
             "Content-Encoding": "zlib",
             "Content-Type": "image/jpeg",
@@ -723,7 +723,7 @@ def test_API_otherCompression():
         "body": deflbody,
         "headers": {
             "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Methods": "GET,OPTIONS",
             "Access-Control-Allow-Origin": "*",
             "Content-Encoding": "deflate",
             "Content-Type": "image/jpeg",
@@ -828,7 +828,7 @@ def test_API_routeURL():
         "body": "heyyyy",
         "headers": {
             "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Methods": "GET,OPTIONS",
             "Access-Control-Allow-Origin": "*",
             "Content-Type": "text/plain",
         },
@@ -867,7 +867,7 @@ def test_API_routeToken(monkeypatch):
         "body": "heyyyy",
         "headers": {
             "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Methods": "GET,OPTIONS",
             "Access-Control-Allow-Origin": "*",
             "Content-Type": "text/plain",
         },
@@ -887,7 +887,7 @@ def test_API_routeToken(monkeypatch):
         "body": "heyyyy",
         "headers": {
             "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Methods": "GET,OPTIONS",
             "Access-Control-Allow-Origin": "*",
             "Content-Type": "text/plain",
         },
@@ -962,7 +962,7 @@ def test_API_functionError():
         "body": '{"errorMessage": "hey something went wrong"}',
         "headers": {
             "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Methods": "GET,OPTIONS",
             "Access-Control-Allow-Origin": "*",
             "Content-Type": "application/json",
         },
@@ -993,7 +993,7 @@ def test_API_Post():
         "body": "heyyyy",
         "headers": {
             "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "GET,POST",
+            "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
             "Access-Control-Allow-Origin": "*",
             "Content-Type": "text/plain",
         },
@@ -1015,7 +1015,7 @@ def test_API_Post():
         "body": "heyyyy",
         "headers": {
             "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "GET,POST",
+            "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
             "Access-Control-Allow-Origin": "*",
             "Content-Type": "text/plain",
         },
@@ -1035,7 +1035,7 @@ def test_API_Post():
         "body": "heyyyy",
         "headers": {
             "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "GET,POST",
+            "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
             "Access-Control-Allow-Origin": "*",
             "Content-Type": "text/plain",
         },
@@ -1072,7 +1072,7 @@ def test_API_ctx():
     }
     headers = {
         "Access-Control-Allow-Credentials": "true",
-        "Access-Control-Allow-Methods": "GET",
+        "Access-Control-Allow-Methods": "GET,OPTIONS",
         "Access-Control-Allow-Origin": "*",
         "Content-Type": "application/json",
     }
@@ -1112,7 +1112,7 @@ def test_API_multipleRoute():
     }
     headers = {
         "Access-Control-Allow-Credentials": "true",
-        "Access-Control-Allow-Methods": "GET",
+        "Access-Control-Allow-Methods": "GET,OPTIONS",
         "Access-Control-Allow-Origin": "*",
         "Content-Type": "application/json",
     }
@@ -1147,7 +1147,7 @@ def test_API_multipleRoute():
 
 def test_API_doc():
     """Should work as expected."""
-    app = proxy.API(name="test")
+    app = proxy.API(name="test", automatic_options=False)
 
     @app.route("/test", methods=["POST"])
     def _post(body: str) -> Tuple[str, str, str]:
@@ -1248,7 +1248,7 @@ def test_API_doc():
 
 def test_API_doc_apigw():
     """Should work as expected if request from api-gateway."""
-    app = proxy.API(name="test")
+    app = proxy.API(name="test", automatic_options=False)
 
     @app.route("/test", methods=["POST"])
     def _post(body: str) -> Tuple[str, str, str]:
@@ -1334,7 +1334,7 @@ def test_API_doc_apigw():
 
 def test_API_docCustomDomain():
     """Should work as expected."""
-    app = proxy.API(name="test")
+    app = proxy.API(name="test", automatic_options=False)
 
     @app.route("/test", methods=["POST"])
     def _post(body: str) -> Tuple[str, str, str]:
@@ -1425,7 +1425,7 @@ def test_routeRegex():
         "body": "heyyyy",
         "headers": {
             "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Methods": "GET,OPTIONS",
             "Access-Control-Allow-Origin": "*",
             "Content-Type": "text/plain",
         },
@@ -1445,7 +1445,7 @@ def test_routeRegex():
         "body": "yooooo",
         "headers": {
             "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Methods": "GET,OPTIONS",
             "Access-Control-Allow-Origin": "*",
             "Content-Type": "text/plain",
         },
@@ -1675,7 +1675,7 @@ def test_API_simpleRoute():
     }
     headers = {
         "Access-Control-Allow-Credentials": "true",
-        "Access-Control-Allow-Methods": "GET",
+        "Access-Control-Allow-Methods": "GET,OPTIONS",
         "Access-Control-Allow-Origin": "*",
         "Content-Type": "text/plain",
     }
@@ -1703,3 +1703,57 @@ def test_API_simpleRoute():
     # Clear logger handlers
     for h in app.log.handlers:
         app.log.removeHandler(h)
+
+
+def test_API_PostPutPatch():
+    """Should work as expected on POST/PUT/PATCH request."""
+    app = proxy.API(name="test")
+    funct = Mock(__name__="Mock", return_value=("OK", "text/plain", "heyyyy"))
+    app._add_route("/test/<user>", funct, methods=["POST", "PUT", "PATCH"], cors=True)
+
+    event = {
+        "path": "/test/remotepixel",
+        "httpMethod": "POST",
+        "headers": {},
+        "queryStringParameters": {},
+        "body": b"0001",
+    }
+    resp = {
+        "body": "heyyyy",
+        "headers": {
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "POST,PUT,PATCH,OPTIONS",
+            "Access-Control-Allow-Origin": "*",
+            "Content-Type": "text/plain",
+        },
+        "statusCode": 200,
+    }
+    res = app(event, {})
+    assert res == resp
+    funct.assert_called_with(user="remotepixel", body=b"0001")
+
+
+def test_API_Options():
+    """Should work as expected on OPTIONS request."""
+    app = proxy.API(name="test")
+    funct = Mock(__name__="Mock", return_value=("OK", "text/plain", "heyyyy"))
+    app._add_route("/test/<user>", funct, methods=["GET", "POST"], cors=True)
+
+    event = {
+        "path": "/test/remotepixel",
+        "httpMethod": "OPTIONS",
+        "headers": {},
+        "queryStringParameters": {},
+    }
+    resp = {
+        "headers": {
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+            "Access-Control-Allow-Origin": "*",
+            "Content-Type": "text/plain",
+        },
+        "statusCode": 200,
+    }
+    res = app(event, {})
+    assert res == resp
+    funct.assert_not_called()

@@ -1,5 +1,9 @@
 Changes
 =======
+5.3.0 (TBD)
+- forward `body` on PUT and PATCH method (#46, author kelsta)
+- add 'OPTIONS' to routes.
+
 5.2.0 (2020-04-09)
 - change `api.routes` to list to allow path per methods 
 (e.g you can now add route with the same path but with different methods).
