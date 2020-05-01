@@ -691,7 +691,7 @@ class API(object):
 
         function_kwargs = self._get_matching_args(route_entry, self.request_path.path)
         function_kwargs.update(request_params.copy())
-        if http_method == "POST" and event.get("body"):
+        if http_method in ["POST", "PUT", "PATCH"] and event.get("body"):
             body = event["body"]
             if event.get("isBase64Encoded"):
                 body = base64.b64decode(body).decode()
