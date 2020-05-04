@@ -1553,27 +1553,50 @@ def testApigwPath():
     }
     p = proxy.ApigwPath(event)
     assert p.path == "/test/1234/pix"
-    assert p.apigw_stage == "/production"
+    assert p.apigw_stage == "production"
     assert p.api_prefix == "/api"
     assert not p.path_mapping
     assert p.prefix == "/production/api"
 
-    # resource "proxy+", apigwg ($default), api prefix (api)
-    # $default is the default stage used with API Gateway's HTTP API
-    # Should point to base URL
+    # New HTTP API integration
+    # by `default` api gateway will deploy the API with a `$default` stage
+    # pointing to the `root` host.
+    # $default -> https://ggnbmhlvlf.execute-api.us-east-1.amazonaws.com
+    # You can then add other stage:
+    # $default -> https://ggnbmhlvlf.execute-api.us-east-1.amazonaws.com
+    # test -> https://ggnbmhlvlf.execute-api.us-east-1.amazonaws.com/test
+    #
+    # resource "proxy+", apigwg stage ($default), no path mapping, no api prefix
     event = {
-        "resource": "/api/{proxy+}",
+        "version": "1.0",
+        "resource": "/{proxy+}",
         "pathParameters": {"proxy": "test/1234/pix"},
-        "path": "/prefix/api/test/1234/pix",
+        "path": "test/1234/pix",
         "headers": {"host": "afakeapi.execute-api.us-east-1.amazonaws.com"},
         "requestContext": {"stage": "$default"},
     }
     p = proxy.ApigwPath(event)
     assert p.path == "/test/1234/pix"
-    assert p.apigw_stage == "/$default"
-    assert p.api_prefix == "/api"
+    assert p.apigw_stage == "$default"
+    assert not p.api_prefix
     assert not p.path_mapping
-    assert p.prefix == "/api"
+    assert not p.prefix
+
+    # resource "proxy+", apigwg stage (production), no path mapping, no api prefix
+    event = {
+        "version": "1.0",
+        "resource": "/{proxy+}",
+        "pathParameters": {"proxy": "test/1234/pix"},
+        "path": "test/1234/pix",
+        "headers": {"host": "afakeapi.execute-api.us-east-1.amazonaws.com"},
+        "requestContext": {"stage": "production"},
+    }
+    p = proxy.ApigwPath(event)
+    assert p.path == "/test/1234/pix"
+    assert p.apigw_stage == "production"
+    assert not p.api_prefix
+    assert not p.path_mapping
+    assert p.prefix == "/production"
 
 
 def testApigwHostUrl():
@@ -1616,6 +1639,21 @@ def testApigwHostUrl():
         app.host
         == "https://abcdefghij.execute-api.eu-central-1.amazonaws.com/production"
     )
+
+    # resource "proxy+", apigwg HTTP ($default)
+    event = {
+        "version": "1.0",
+        "resource": "/{proxy+}",
+        "pathParameters": {"proxy": "test/1234/pix"},
+        "path": "test/1234/pix",
+        "headers": {
+            "X-Forwarded-Host": "abcdefghij.execute-api.eu-central-1.amazonaws.com"
+        },
+        "requestContext": {"stage": "$default"},
+        "httpMethod": "GET",
+    }
+    _ = app(event, {})
+    assert app.host == "https://abcdefghij.execute-api.eu-central-1.amazonaws.com"
 
     # resource "proxy+", no apigwg, no path mapping, no api prefix
     event = {
