@@ -128,13 +128,11 @@ def _get_apigw_stage(event: Dict) -> str:
     host = header.get("x-forwarded-host", header.get("host", ""))
     if ".execute-api." in host and ".amazonaws.com" in host:
         stage = event["requestContext"].get("stage", "")
-        if stage:
-            stage = f"/{stage}"
         return stage
     return ""
 
 
-def _get_request_path(event: Dict) -> str:
+def _get_request_path(event: Dict) -> Optional[str]:
     """Return API call path."""
     resource_proxy = proxy_pattern.search(event.get("resource", "/"))
     if resource_proxy:
@@ -149,6 +147,7 @@ class ApigwPath(object):
 
     def __init__(self, event: Dict):
         """Initialize API Gateway Path Info object."""
+        self.version = event.get("version")
         self.apigw_stage = _get_apigw_stage(event)
         self.path = _get_request_path(event)
         self.api_prefix = proxy_pattern.sub("", event.get("resource", "")).rstrip("/")
@@ -162,11 +161,8 @@ class ApigwPath(object):
     @property
     def prefix(self):
         """Return the API prefix."""
-        if self.apigw_stage:
-            if self.apigw_stage == "/$default":
-                return self.api_prefix
-
-            return self.apigw_stage + self.api_prefix
+        if self.apigw_stage and not self.apigw_stage == "$default":
+            return f"/{self.apigw_stage}" + self.api_prefix
         elif self.path_mapping:
             return self.path_mapping + self.api_prefix
         else:
@@ -211,10 +207,11 @@ class API(object):
             "x-forwarded-host", self.event["headers"].get("host", "")
         )
         path_info = self.request_path
-        if path_info.apigw_stage:
-            host_suffix = path_info.apigw_stage
+        if path_info.apigw_stage and not path_info.apigw_stage == "$default":
+            host_suffix = f"/{path_info.apigw_stage}"
         else:
             host_suffix = path_info.path_mapping
+
         scheme = "https" if self.https else "http"
         return f"{scheme}://{host}{host_suffix}"
 

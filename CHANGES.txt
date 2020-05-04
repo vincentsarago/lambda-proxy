@@ -1,5 +1,8 @@
 Changes
 =======
+5.2.1 (2020-05-04)
+- Fix bad api prefix when using new $default HTTP api stage
+
 5.2.0 (2020-04-09)
 - change `api.routes` to list to allow path per methods 
 (e.g you can now add route with the same path but with different methods).
