@@ -3,7 +3,7 @@
 Freely adapted from https://github.com/aws/chalice
 
 """
-from typing import Any, Callable, Dict, List, Optional, Tuple, Sequence, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Type
 
 import inspect
 
@@ -14,10 +14,12 @@ import json
 import zlib
 import base64
 import logging
-import warnings
 from functools import wraps
 
 from lambda_proxy import templates
+from lambda_proxy.responses import Response, JSONResponse, HTMLResponse
+from lambda_proxy.errors import HTTPException
+
 
 params_expr = re.compile(r"(<[^>]*>)")
 proxy_pattern = re.compile(r"/{(?P<name>.+)\+}$")
@@ -27,6 +29,18 @@ param_pattern = re.compile(
 regex_pattern = re.compile(
     r"^<(?P<type>regex)\((?P<pattern>.+)\):(?P<name>[a-zA-Z0-9_]+)>$"
 )
+binary_types = [
+    "application/octet-stream",
+    "application/x-protobuf",
+    "application/x-tar",
+    "application/zip",
+    "image/png",
+    "image/jpeg",
+    "image/jpg",
+    "image/tiff",
+    "image/webp",
+    "image/jp2",
+]
 
 
 def _path_to_regex(path: str) -> str:
@@ -83,15 +97,14 @@ class RouteEntry(object):
         self,
         endpoint: Callable,
         path: str,
-        methods: List = ["GET"],
+        methods: Sequence[str] = ["GET"],
         cors: bool = False,
         token: bool = False,
         payload_compression_method: str = "",
         binary_b64encode: bool = False,
-        ttl=None,
-        cache_control=None,
-        description: str = None,
-        tag: Tuple = None,
+        description: Optional[str] = None,
+        tag: Optional[Sequence[str]] = None,
+        response_class: Type[Response] = JSONResponse,
     ) -> None:
         """Initialize route object."""
         self.endpoint = endpoint
@@ -103,14 +116,16 @@ class RouteEntry(object):
         self.token = token
         self.compression = payload_compression_method
         self.b64encode = binary_b64encode
-        self.ttl = ttl
-        self.cache_control = cache_control
         self.description = description or self.endpoint.__doc__
         self.tag = tag
+        self.response_class = response_class
+
         if self.compression and self.compression not in ["gzip", "zlib", "deflate"]:
             raise ValueError(
                 f"'{payload_compression_method}' is not a supported compression"
             )
+
+        self.response_param: Optional[str] = None
 
     def __eq__(self, other) -> bool:
         """Check for equality."""
@@ -256,11 +271,21 @@ class API(object):
         for name, arg in endpoint_args.items():
             if name not in endpoint_args_names:
                 continue
+
             parameter = {"name": name, "in": "query", "schema": {}}
-            if arg.default is not inspect.Parameter.empty:
+
+            if isinstance(arg.annotation, type) and issubclass(
+                arg.annotation, Response
+            ):
+                route.response_param = name
+                continue
+
+            elif arg.default is not inspect.Parameter.empty:
                 parameter["schema"]["default"] = arg.default
+
             elif arg.kind == inspect.Parameter.VAR_KEYWORD:
                 parameter["schema"]["format"] = "dict"
+
             else:
                 parameter["schema"]["format"] = "string"
                 parameter["required"] = True
@@ -359,24 +384,20 @@ class API(object):
 
         return False
 
-    def _add_route(self, path: str, endpoint: Callable, **kwargs) -> None:
-        methods = kwargs.pop("methods", ["GET"])
-        cors = kwargs.pop("cors", False)
-        token = kwargs.pop("token", "")
-        payload_compression = kwargs.pop("payload_compression_method", "")
-        binary_encode = kwargs.pop("binary_b64encode", False)
-        ttl = kwargs.pop("ttl", None)
-        cache_control = kwargs.pop("cache_control", None)
-        description = kwargs.pop("description", None)
-        tag = kwargs.pop("tag", None)
-
-        if ttl:
-            warnings.warn(
-                "ttl will be deprecated in 6.0.0, please use 'cache-control'",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-
+    def _add_route(
+        self,
+        path: str,
+        endpoint: Callable,
+        methods: Sequence[str] = ["GET"],
+        cors: bool = False,
+        payload_compression_method: str = "",
+        binary_b64encode: bool = False,
+        description: Optional[str] = None,
+        tag: Optional[Sequence[str]] = None,
+        response_class: Type[Response] = JSONResponse,
+        token: bool = False,
+        **kwargs,
+    ) -> None:
         if kwargs:
             raise TypeError(
                 "TypeError: route() got unexpected keyword "
@@ -393,15 +414,14 @@ class API(object):
         route = RouteEntry(
             endpoint,
             path,
-            methods,
-            cors,
-            token,
-            payload_compression,
-            binary_encode,
-            ttl,
-            cache_control,
-            description,
-            tag,
+            methods=methods,
+            cors=cors,
+            token=token,
+            payload_compression_method=payload_compression_method,
+            binary_b64encode=binary_b64encode,
+            description=description,
+            tag=tag,
+            response_class=response_class,
         )
         self.routes.append(route)
 
@@ -409,6 +429,7 @@ class API(object):
         for route in self.routes:
             if method in route.methods and path == route.path:
                 return True
+
         return False
 
     def _url_matching(self, url: str, method: str) -> Optional[RouteEntry]:
@@ -496,90 +517,60 @@ class API(object):
         """Add default documentation routes."""
         openapi_url = f"/openapi.json"
 
-        def _openapi() -> Tuple[str, str, str]:
+        def _openapi():
             """Return OpenAPI json."""
-            return (
-                "OK",
-                "application/json",
-                json.dumps(self._get_openapi(openapi_prefix=self.request_path.prefix)),
-            )
+            return self._get_openapi(openapi_prefix=self.request_path.prefix)
 
         self._add_route(openapi_url, _openapi, cors=True, tag=["documentation"])
 
-        def _swagger_ui_html() -> Tuple[str, str, str]:
+        def _swagger_ui_html():
             """Display Swagger HTML UI."""
             openapi_prefix = self.request_path.prefix
-            return (
-                "OK",
-                "text/html",
-                templates.swagger(
-                    openapi_url=f"{openapi_prefix}{openapi_url}",
-                    title=self.name + " - Swagger UI",
-                ),
+            return templates.swagger(
+                openapi_url=f"{openapi_prefix}{openapi_url}",
+                title=self.name + " - Swagger UI",
             )
 
-        self._add_route("/docs", _swagger_ui_html, cors=True, tag=["documentation"])
+        self._add_route(
+            "/docs",
+            _swagger_ui_html,
+            cors=True,
+            tag=["documentation"],
+            response_class=HTMLResponse,
+        )
 
-        def _redoc_ui_html() -> Tuple[str, str, str]:
+        def _redoc_ui_html():
             """Display Redoc HTML UI."""
             openapi_prefix = self.request_path.prefix
-            return (
-                "OK",
-                "text/html",
-                templates.redoc(
-                    openapi_url=f"{openapi_prefix}{openapi_url}",
-                    title=self.name + " - ReDoc",
-                ),
+            return templates.redoc(
+                openapi_url=f"{openapi_prefix}{openapi_url}",
+                title=self.name + " - ReDoc",
             )
 
-        self._add_route("/redoc", _redoc_ui_html, cors=True, tag=["documentation"])
+        self._add_route(
+            "/redoc",
+            _redoc_ui_html,
+            cors=True,
+            tag=["documentation"],
+            response_class=HTMLResponse,
+        )
 
     def response(
         self,
-        status: Union[int, str],
-        content_type: str,
-        response_body: Any,
+        response: Response,
         cors: bool = False,
         accepted_methods: Sequence = [],
-        accepted_compression: str = "",
         compression: str = "",
         b64encode: bool = False,
-        ttl: int = None,
-        cache_control: str = None,
     ):
         """Return HTTP response.
 
         including response code (status), headers and body
 
         """
-        statusCode = {
-            "OK": 200,
-            "EMPTY": 204,
-            "NOK": 400,
-            "FOUND": 302,
-            "NOT_FOUND": 404,
-            "CONFLICT": 409,
-            "ERROR": 500,
-        }
-
-        binary_types = [
-            "application/octet-stream",
-            "application/x-protobuf",
-            "application/x-tar",
-            "application/zip",
-            "image/png",
-            "image/jpeg",
-            "image/jpg",
-            "image/tiff",
-            "image/webp",
-            "image/jp2",
-        ]
-
-        status = statusCode[status] if isinstance(status, str) else status
-
         messageData: Dict[str, Any] = {
-            "statusCode": status,
-            "headers": {"Content-Type": content_type},
+            "statusCode": response.status_code,
+            "headers": response.headers.copy(),
         }
 
         if cors:
@@ -589,47 +580,32 @@ class API(object):
             )
             messageData["headers"]["Access-Control-Allow-Credentials"] = "true"
 
+        response_body = response.body
+        accepted_compression = self.event["headers"].get("accept-encoding", "")
         if compression and compression in accepted_compression:
             messageData["headers"]["Content-Encoding"] = compression
-            if isinstance(response_body, str):
-                response_body = bytes(response_body, "utf-8")
-
             if compression == "gzip":
                 gzip_compress = zlib.compressobj(9, zlib.DEFLATED, zlib.MAX_WBITS | 16)
                 response_body = (
                     gzip_compress.compress(response_body) + gzip_compress.flush()
                 )
+
             elif compression == "zlib":
                 zlib_compress = zlib.compressobj(9, zlib.DEFLATED, zlib.MAX_WBITS)
                 response_body = (
                     zlib_compress.compress(response_body) + zlib_compress.flush()
                 )
+
             elif compression == "deflate":
                 deflate_compress = zlib.compressobj(9, zlib.DEFLATED, -zlib.MAX_WBITS)
                 response_body = (
                     deflate_compress.compress(response_body) + deflate_compress.flush()
                 )
+
             else:
-                return self.response(
-                    "ERROR",
-                    "application/json",
-                    json.dumps(
-                        {"errorMessage": f"Unsupported compression mode: {compression}"}
-                    ),
-                )
+                raise Exception(f"Unsupported compression mode: {compression}")
 
-        if ttl:
-            messageData["headers"]["Cache-Control"] = (
-                f"max-age={ttl}" if status == 200 else "no-cache"
-            )
-        elif cache_control:
-            messageData["headers"]["Cache-Control"] = (
-                cache_control if status == 200 else "no-cache"
-            )
-
-        if (
-            content_type in binary_types or not isinstance(response_body, str)
-        ) and b64encode:
+        if response.media_type in binary_types and b64encode:
             messageData["isBase64Encoded"] = True
             messageData["body"] = base64.b64encode(response_body).decode()
         else:
@@ -651,68 +627,65 @@ class API(object):
             (key.lower(), value) for key, value in headers.items()
         )
 
-        self.request_path = ApigwPath(self.event)
-        if self.request_path.path is None:
-            return self.response(
-                "NOK",
-                "application/json",
-                json.dumps({"errorMessage": "Missing or invalid path"}),
-            )
+        try:
+            self.request_path = ApigwPath(self.event)
+            if self.request_path.path is None:
+                raise HTTPException(404, "Missing or invalid path")
 
-        http_method = event["httpMethod"]
-        route_entry = self._url_matching(self.request_path.path, http_method)
-        if not route_entry:
-            return self.response(
-                "NOK",
-                "application/json",
-                json.dumps(
-                    {
-                        "errorMessage": "No view function for: {} - {}".format(
-                            http_method, self.request_path.path
-                        )
-                    }
-                ),
-            )
-
-        request_params = event.get("queryStringParameters", {}) or {}
-        if route_entry.token:
-            if not self._validate_token(request_params.get("access_token")):
-                return self.response(
-                    "ERROR",
-                    "application/json",
-                    json.dumps({"message": "Invalid access token"}),
+            http_method = event["httpMethod"]
+            route_entry = self._url_matching(self.request_path.path, http_method)
+            if not route_entry:
+                raise HTTPException(
+                    501,
+                    f"No view function for: {http_method} - {self.request_path.path}",
                 )
 
-        # remove access_token from kwargs
-        request_params.pop("access_token", False)
+            request_params = event.get("queryStringParameters", {}) or {}
+            if route_entry.token:
+                if not self._validate_token(request_params.get("access_token")):
+                    raise HTTPException(401, "Invalid access token")
 
-        function_kwargs = self._get_matching_args(route_entry, self.request_path.path)
-        function_kwargs.update(request_params.copy())
-        if http_method in ["POST", "PUT", "PATCH"] and event.get("body"):
-            body = event["body"]
-            if event.get("isBase64Encoded"):
-                body = base64.b64decode(body).decode()
-            function_kwargs.update(dict(body=body))
+            # remove access_token from kwargs
+            request_params.pop("access_token", False)
 
-        try:
-            response = route_entry.endpoint(**function_kwargs)
-        except Exception as err:
-            self.log.error(str(err))
-            response = (
-                "ERROR",
-                "application/json",
-                json.dumps({"errorMessage": str(err)}),
+            function_kwargs = self._get_matching_args(
+                route_entry, self.request_path.path
             )
 
-        return self.response(
-            response[0],
-            response[1],
-            response[2],
-            cors=route_entry.cors,
-            accepted_methods=route_entry.methods,
-            accepted_compression=self.event["headers"].get("accept-encoding", ""),
-            compression=route_entry.compression,
-            b64encode=route_entry.b64encode,
-            ttl=route_entry.ttl,
-            cache_control=route_entry.cache_control,
-        )
+            function_kwargs.update(request_params.copy())
+            if http_method in ["POST", "PUT", "PATCH"] and event.get("body"):
+                body = event["body"]
+                if event.get("isBase64Encoded"):
+                    body = base64.b64decode(body).decode()
+                function_kwargs.update(dict(body=body))
+
+            # if route has a response we add it back into the args
+            if route_entry.response_param:
+                function_kwargs[route_entry.response_param] = Response()
+
+            response = route_entry.endpoint(**function_kwargs)
+            if not isinstance(response, Response):
+                response = route_entry.response_class(response)
+
+            if route_entry.response_param:
+                sub_response = function_kwargs[route_entry.response_param]
+                response.headers.update(sub_response.headers)
+                if sub_response.status_code:
+                    response.status_code = sub_response.status_code
+
+            return self.response(
+                response,
+                cors=route_entry.cors,
+                accepted_methods=route_entry.methods,
+                compression=route_entry.compression,
+                b64encode=route_entry.b64encode,
+            )
+
+        except HTTPException as exc:
+            return self.response(
+                JSONResponse(
+                    {"detail": exc.detail},
+                    status_code=exc.status_code,
+                    headers=exc.headers,
+                )
+            )

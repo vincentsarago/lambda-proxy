@@ -1,83 +1,92 @@
 """app: handle requests."""
 
-from typing import Dict, Tuple
-import typing.io
-
-import json
+from typing import Dict
 
 from lambda_proxy.proxy import API
+from lambda_proxy.responses import PlainTextResponse, Response
 
-app = API(name="app", debug=True)
-
-
-@app.get("/", cors=True)
-def main() -> Tuple[str, str, str]:
-    """Return JSON Object."""
-    return ("OK", "text/plain", "Yo")
+app = API(name="app")
 
 
-@app.get("/<regex([0-9]{2}-[a-zA-Z]{5}):regex1>", cors=True)
-def _re_one(regex1: str) -> Tuple[str, str, str]:
-    """Return JSON Object."""
-    return ("OK", "text/plain", regex1)
+@app.get("/", cors=True, response_class=PlainTextResponse)
+def main():
+    """Return String."""
+    return "Yo"
 
 
-@app.get("/<regex([0-9]{1}-[a-zA-Z]{5}):regex2>", cors=True)
-def _re_two(regex2: str) -> Tuple[str, str, str]:
-    """Return JSON Object."""
-    return ("OK", "text/plain", regex2)
+@app.post("/people", cors=True, response_class=PlainTextResponse)
+def people_post(body):
+    """Return String."""
+    return body
 
 
-@app.post("/people", cors=True)
-def people_post(body) -> Tuple[str, str, str]:
-    """Return JSON Object."""
-    return ("OK", "text/plain", body)
+@app.get("/people", cors=True, response_class=PlainTextResponse)
+def people_get():
+    """Return String."""
+    return "Nope"
 
 
-@app.get("/people", cors=True)
-def people_get() -> Tuple[str, str, str]:
-    """Return JSON Object."""
-    return ("OK", "text/plain", "Nope")
+@app.get("/kw/<string:user>", cors=True, response_class=PlainTextResponse)
+def kw_method(user: str, **kwargs: Dict):
+    """Return String."""
+    return f"{user}"
 
 
-@app.get("/<string:user>", cors=True)
-@app.get("/<string:user>/<int:num>", cors=True)
-def double(user: str, num: int = 0) -> Tuple[str, str, str]:
-    """Return JSON Object."""
-    return ("OK", "text/plain", f"{user}-{num}")
-
-
-@app.get("/kw/<string:user>", cors=True)
-def kw_method(user: str, **kwargs: Dict) -> Tuple[str, str, str]:
-    """Return JSON Object."""
-    return ("OK", "text/plain", f"{user}")
-
-
-@app.get("/ctx/<string:user>", cors=True)
+@app.get("/ctx/<string:user>", cors=True, response_class=PlainTextResponse)
 @app.pass_context
 @app.pass_event
-def ctx_method(evt: Dict, ctx: Dict, user: str, num: int = 0) -> Tuple[str, str, str]:
-    """Return JSON Object."""
-    return ("OK", "text/plain", f"{user}-{num}")
+def ctx_method(evt: Dict, ctx: Dict, user: str, num: int = 0):
+    """Return String."""
+    return f"{user}-{num}"
 
 
-@app.get("/json", cors=True)
-def json_handler() -> Tuple[str, str, str]:
+@app.get("/json/itworks", cors=True)
+def json_handler():
     """Return JSON Object."""
-    return ("OK", "application/json", json.dumps({"app": "it works"}))
+    return {"app": "it works"}
 
 
 @app.get("/binary", cors=True, payload_compression_method="gzip")
-def bin() -> Tuple[str, str, typing.io.BinaryIO]:
+def bin():
     """Return image."""
     with open("./rpix.png", "rb") as f:
-        return ("OK", "image/png", f.read())
+        return Response(f.read(), media_type="image/png")
 
 
 @app.get(
     "/b64binary", cors=True, payload_compression_method="gzip", binary_b64encode=True,
 )
-def b64bin() -> Tuple[str, str, typing.io.BinaryIO]:
+def b64bin():
     """Return base64 encoded image."""
     with open("./rpix.png", "rb") as f:
-        return ("OK", "image/png", f.read())
+        return Response(f.read(), media_type="image/png")
+
+
+@app.get("/header/json", cors=True)
+def addHeader_handler(resp: Response):
+    """Return JSON Object."""
+    resp.headers["Cache-Control"] = "max-age=3600"
+    return {"app": "it works"}
+
+
+@app.get("/<string:user>", cors=True, response_class=PlainTextResponse)
+@app.get("/<string:user>/<int:num>", cors=True, response_class=PlainTextResponse)
+def double(user: str, num: int = 0):
+    """Return String."""
+    return f"{user}-{num}"
+
+
+@app.get(
+    "/<regex([0-9]{2}-[a-zA-Z]{5}):regex1>", cors=True, response_class=PlainTextResponse
+)
+def _re_one(regex1: str):
+    """Return String."""
+    return regex1
+
+
+@app.get(
+    "/<regex([0-9]{1}-[a-zA-Z]{5}):regex2>", cors=True, response_class=PlainTextResponse
+)
+def _re_two(regex2: str):
+    """Return String."""
+    return regex2
